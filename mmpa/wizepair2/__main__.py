@@ -48,30 +48,31 @@ class MMP():
         # iterate over the mappings identified from MCSS
         for pair in clique:
             
-            # map first atom and set radius to 99 (atom part of MCS)
-            atom1 = self._mol1.GetAtomWithIdx(pair[0])
-            
-            # map second atom and set radius to 99 (atom part of MCS)
-            atom2 = self._mol2.GetAtomWithIdx(pair[1])
-            
-            # store the CIP codes somewhere that doesn't throw errors on comparison when missing
-            try: atom1._CIPCode = atom1.GetProp('_CIPCode')
-            except KeyError: atom1._CIPCode = None
-            try: atom2._CIPCode = atom2.GetProp('_CIPCode')
-            except KeyError: atom2._CIPCode = None            
-
-            # set penalties - 3 strikes and you're out!
-            __tempscore = 0
-            if atom1.GetImplicitValence() != atom2.GetImplicitValence(): __tempscore += 1.0/penalty
-            if atom1.GetAtomicNum() != atom2.GetAtomicNum(): __tempscore += 1.0/penalty
-            if atom1.GetDegree() != atom2.GetDegree(): __tempscore += 1.0/penalty
-            if atom1.IsInRing() != atom2.IsInRing(): __tempscore += 1.0/penalty
-            if atom1._CIPCode != atom2._CIPCode: __tempscore += 1.0/penalty
-            
-            # set upper limit on penalty to 1
-            __tempscore = min(__tempscore, 1)
+#            # map first atom and set radius to 99 (atom part of MCS)
+#            atom1 = self._mol1.GetAtomWithIdx(pair[0])
+#            
+#            # map second atom and set radius to 99 (atom part of MCS)
+#            atom2 = self._mol2.GetAtomWithIdx(pair[1])
+#            
+#            # store the CIP codes somewhere that doesn't throw errors on comparison when missing
+#            try: atom1._CIPCode = atom1.GetProp('_CIPCode')
+#            except KeyError: atom1._CIPCode = None
+#            try: atom2._CIPCode = atom2.GetProp('_CIPCode')
+#            except KeyError: atom2._CIPCode = None            
+#
+#            # set penalties - 3 strikes and you're out!
+#            __tempscore = 0
+#            if atom1.GetImplicitValence() != atom2.GetImplicitValence(): __tempscore += 1.0/penalty
+#            if atom1.GetAtomicNum() != atom2.GetAtomicNum(): __tempscore += 1.0/penalty
+#            if atom1.GetDegree() != atom2.GetDegree(): __tempscore += 1.0/penalty
+#            if atom1.IsInRing() != atom2.IsInRing(): __tempscore += 1.0/penalty
+#            if atom1._CIPCode != atom2._CIPCode: __tempscore += 1.0/penalty
+#            
+#            # set upper limit on penalty to 1
+#            __tempscore = min(__tempscore, 1)
+            __tempscore = pair[2]
             __score = __score - __tempscore
-            if __score < target: return -1E800, None
+            #if __score < target: return -1E800, None
             
             # flag atoms as RECS in addition to those not mapped
             if __tempscore: __mcs.remove(pair)
@@ -226,10 +227,10 @@ if __name__ == '__main__':
 #            core = '[*]Cn1cc([C@@H]2NC(=O)[C@H](CCCCCC(CC)=O)NC(=O)[C@H]3CCCCN3C(=O)[C@H]([C@H](C)CC)NC2=O)c(=O)c2ccccc12'    
             
             # prepare sets of atomic identifiers
-            mol1set = set()
-            for atom in mol1.GetAtoms(): mol1set.add(atom.GetIdx())
-            mol2set = set()
-            for atom in mol2.GetAtoms(): mol2set.add(atom.GetIdx())
+#            mol1set = set()
+#            for atom in mol1.GetAtoms(): mol1set.add(atom.GetIdx())
+#            mol2set = set()
+#            for atom in mol2.GetAtoms(): mol2set.add(atom.GetIdx())
             
 #            # remove attachment point 
 #            editcore = Chem.EditableMol(core)
@@ -248,9 +249,28 @@ if __name__ == '__main__':
               
             # prepare potential atom-atom mappings and create correspondance graph vertices
             g = networkx.Graph()
-            for idx1 in mol1set:
-                for idx2 in mol2set:
-                    mapping = (idx1,idx2)
+            for atom1 in mol1.GetAtoms():
+                for atom2 in mol2.GetAtoms():
+                    
+                    # store the CIP codes somewhere that doesn't throw errors on comparison when missing
+                    try: atom1._CIPCode = atom1.GetProp('_CIPCode')
+                    except KeyError: atom1._CIPCode = None
+                    try: atom2._CIPCode = atom2.GetProp('_CIPCode')
+                    except KeyError: atom2._CIPCode = None            
+        
+                    # set penalties - 3 strikes and you're out!
+                    __tempscore = 0
+                    if atom1.GetImplicitValence() != atom2.GetImplicitValence(): __tempscore += 1
+                    if atom1.GetAtomicNum() != atom2.GetAtomicNum(): __tempscore += 1
+                    if atom1.GetDegree() != atom2.GetDegree(): __tempscore += 1
+                    if atom1.IsInRing() != atom2.IsInRing(): __tempscore += 1
+                    if atom1._CIPCode != atom2._CIPCode: __tempscore += 1
+                    
+                    # set upper limit on penalty to 1
+                    __penalty = 3.0
+                    __tempscore = min(1, __tempscore/__penalty)              
+                    
+                    mapping = (atom1.GetIdx(), atom2.GetIdx(), __tempscore)
                     g.add_node(mapping)
 #            g.add_nodes_from(coremap)
             
@@ -269,10 +289,10 @@ if __name__ == '__main__':
 #            plt.show()            
             
             # calculate maximal cliques and report output
-            print "timer1: ", timeit.timeit('cliques = list(find_cliques(g))', 'from networkx.algorithms.clique import find_cliques; from __main__ import g', number = 1)
+#            print "timer1: ", timeit.timeit('cliques = list(find_cliques(g))', 'from networkx.algorithms.clique import find_cliques; from __main__ import g', number = 1)
              
             # score the cliques and isolate RECS
-            print "timer2: ", timeit.timeit('MMP(mol1,mol2).scoreCliques(list(find_cliques(g)))', 'from networkx.algorithms.clique import find_cliques; from __main__ import mol1, mol2, g, MMP', number = 1)
+#            print "timer2: ", timeit.timeit('MMP(mol1,mol2).scoreCliques(list(find_cliques(g)))', 'from networkx.algorithms.clique import find_cliques; from __main__ import mol1, mol2, g, MMP', number = 1)
             cliques = list(find_cliques(g))
             mmp = MMP(mol1,mol2)
             mmp.scoreCliques(cliques) 
@@ -298,7 +318,9 @@ if __name__ == '__main__':
                 print Chem.MolToSmiles(prod)
                 
             # write reaction
-            rxnfile.write(ReactionToRxnBlock(reaction))            
+            rxnfile.write(ReactionToRxnBlock(reaction))     
+            
+#            break       
             
         # close file handles
         infile.close()
