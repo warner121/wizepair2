@@ -22,63 +22,65 @@ from rdkit.Chem.rdChemReactions import ChemicalReaction, ReactionToRxnBlock
 from networkx.algorithms.clique import find_cliques
 import timeit
     
-class MMP():
+class MMP(networkx.Graph):
 
-    def __init__(self, mol1 = None, mol2 = None):
+    def setMol1(self, mol=None):
         
         # TODO(warner121@hotmail.com): be good to check here, I guess?
-        if mol1: self._mol1 = mol1
-        if mol2: self._mol2 = mol2
+        if mol: self._mol1 = mol
             
         # clear mappings and initialise radii (assume all atoms are RECS)
         for atom in self._mol1.GetAtoms(): 
             atom.SetProp('molAtomRadius','0')
             atom.ClearProp('molAtomMapNumber')
+            
+    def setMol2(self, mol=None):
+        
+        # TODO(warner121@hotmail.com): be good to check here, I guess?
+        if mol: self._mol2 = mol
+            
+        # clear mappings and initialise radii (assume all atoms are RECS)
         for atom in self._mol2.GetAtoms(): 
             atom.SetProp('molAtomRadius','0')
-            atom.ClearProp('molAtomMapNumber')          
+            atom.ClearProp('molAtomMapNumber')
+                        
+    def createCorrespondence(self, penalty=3.0):
             
-    def __scoreClique(self, clique, target = -1E800, penalty = 3):
-        
-        # initialize scores
-        __score = len(clique)
-        __mcs = list(clique)
-        if __score < target: return -1E800, None
-
-        # iterate over the mappings identified from MCSS
-        for pair in clique:
-            
-#            # map first atom and set radius to 99 (atom part of MCS)
-#            atom1 = self._mol1.GetAtomWithIdx(pair[0])
-#            
-#            # map second atom and set radius to 99 (atom part of MCS)
-#            atom2 = self._mol2.GetAtomWithIdx(pair[1])
-#            
-#            # store the CIP codes somewhere that doesn't throw errors on comparison when missing
-#            try: atom1._CIPCode = atom1.GetProp('_CIPCode')
-#            except KeyError: atom1._CIPCode = None
-#            try: atom2._CIPCode = atom2.GetProp('_CIPCode')
-#            except KeyError: atom2._CIPCode = None            
-#
-#            # set penalties - 3 strikes and you're out!
-#            __tempscore = 0
-#            if atom1.GetImplicitValence() != atom2.GetImplicitValence(): __tempscore += 1.0/penalty
-#            if atom1.GetAtomicNum() != atom2.GetAtomicNum(): __tempscore += 1.0/penalty
-#            if atom1.GetDegree() != atom2.GetDegree(): __tempscore += 1.0/penalty
-#            if atom1.IsInRing() != atom2.IsInRing(): __tempscore += 1.0/penalty
-#            if atom1._CIPCode != atom2._CIPCode: __tempscore += 1.0/penalty
-#            
-#            # set upper limit on penalty to 1
-#            __tempscore = min(__tempscore, 1)
-            __tempscore = pair[2]
-            __score = __score - __tempscore
-            #if __score < target: return -1E800, None
-            
-            # flag atoms as RECS in addition to those not mapped
-            if __tempscore: __mcs.remove(pair)
-        return __score, __mcs
+        for atom1 in mol1.GetAtoms():
+            for atom2 in mol2.GetAtoms():
+                
+                # store the CIP codes somewhere that doesn't throw errors on comparison when missing
+                try: atom1._CIPCode = atom1.GetProp('_CIPCode')
+                except KeyError: atom1._CIPCode = None
+                try: atom2._CIPCode = atom2.GetProp('_CIPCode')
+                except KeyError: atom2._CIPCode = None            
     
-    def setMappings(self, clique):        
+                # set penalties - 3 strikes and you're out!
+                __tempscore = 0
+                if atom1.GetImplicitValence() != atom2.GetImplicitValence(): __tempscore += 1
+                if atom1.GetAtomicNum() != atom2.GetAtomicNum(): __tempscore += 1
+                if atom1.GetDegree() != atom2.GetDegree(): __tempscore += 1
+                if atom1.IsInRing() != atom2.IsInRing(): __tempscore += 1
+                if atom1._CIPCode != atom2._CIPCode: __tempscore += 1
+                
+                # set upper limit on penalty to 1
+                __tempscore = min(1, __tempscore/penalty)              
+                mapping = (atom1.GetIdx(), atom2.GetIdx(), __tempscore)
+                if __tempscore < 1: self.add_node(mapping) 
+        
+        # calculate distance matrices
+        __dmat1 = Chem.GetDistanceMatrix(mol1)
+        __dmat2 = Chem.GetDistanceMatrix(mol2)  
+
+        # create correspondance graph edges
+        for map1 in self.nodes_iter():
+            for map2 in self.nodes_iter():
+
+                # test if criteria are met for correspondance
+                correspondance = __dmat1[map1[0]][map2[0]] == __dmat2[map1[1]][map2[1]]
+                if correspondance: self.add_edge(map1, map2)        
+    
+    def __setMappings(self, clique):        
 
         # iterate over the remaining mappings identified from MCSS
         for pair in clique:
@@ -94,7 +96,7 @@ class MMP():
             atom2 = self._mol2.GetAtomWithIdx(pair[1])
             atom2.SetProp('molAtomMapNumber','%d'%mapIdx)
     
-    def flagMCS(self, mcs):
+    def __flagMCS(self, mcs):
 
         # iterate over the remaining mappings identified from MCSS
         for pair in mcs:
@@ -109,22 +111,34 @@ class MMP():
                                             
     def scoreCliques(self, cliques):
         
-        # initiialise
+        # initialise
         bestscore = -1E800
         bestmcs = None    
         bestclique = None            
         
         # score largest cliques first
-        cliques.sort(key = len, reverse=True)
-        for clique in cliques:      
-            score, mcs = self.__scoreClique(clique = clique, target = bestscore)
+        cliques.sort(key=len, reverse=True)
+        for clique in cliques:   
+            
+            # initialize scores
+            score = len(clique)
+            mcs = list(clique)
+            if score <= bestscore: continue # score cannot be greater than clique size
+    
+            # iterate over the mappings identified from MCSS
+            for pair in clique:
+                score = score - pair[2] # lookup predefined score penalty
+                if pair[2]: mcs.remove(pair) # flag atoms as RECS in addition to those not mapped
+
+            # store results if best so far
             if score > bestscore:
                 bestscore = score
                 bestmcs = mcs
                 bestclique = clique  
-#                print score, len(mcs), len(clique)
-        self.setMappings(bestclique)
-        self.flagMCS(bestmcs)
+
+        # map all atoms in clique and flag MCS
+        self.__setMappings(bestclique)
+        self.__flagMCS(bestmcs)
         
     def eliminateMCS(self):
         
@@ -221,70 +235,13 @@ if __name__ == '__main__':
             # define input molecules
             mol1 = Chem.MolFromSmiles(line['Molecule_L'])
             mol2 = Chem.MolFromSmiles(line['Molecule_R'])
-            core = Chem.MolFromSmarts(line['Context'])
-#            mol1 = Chem.MolFromSmiles('CCC(CCCCC[C@@H]1NC(=O)[C@H]2CCCCN2C(=O)[C@H]([C@H](C)CC)NC(=O)[C@H](c2cn(C)c3c(cccc3)c2=O)NC1=O)=O')
-#            mol2 = Chem.MolFromSmiles('CCCn1cc([C@@H]2NC(=O)[C@H](CCCCCC(CC)=O)NC(=O)[C@H]3CCCCN3C(=O)[C@H]([C@H](C)CC)NC2=O)c(=O)c2c1cccc2')
-#            core = '[*]Cn1cc([C@@H]2NC(=O)[C@H](CCCCCC(CC)=O)NC(=O)[C@H]3CCCCN3C(=O)[C@H]([C@H](C)CC)NC2=O)c(=O)c2ccccc12'    
+                          
+            # prepare potential atom-atom mappings and create correspondence graph
+            mmp = MMP()
+            mmp.setMol1(mol1)
+            mmp.setMol2(mol2)
+            mmp.createCorrespondence(penalty=3.0)
             
-            # prepare sets of atomic identifiers
-#            mol1set = set()
-#            for atom in mol1.GetAtoms(): mol1set.add(atom.GetIdx())
-#            mol2set = set()
-#            for atom in mol2.GetAtoms(): mol2set.add(atom.GetIdx())
-            
-#            # remove attachment point 
-#            editcore = Chem.EditableMol(core)
-#            for atom in core.GetAtoms(): 
-#                if atom.GetMass(): continue
-#                editcore.RemoveAtom(atom.GetIdx())
-#                break
-#            core = editcore.GetMol()    
-#            
-#            # map core to molecules to get subsets
-#            mol1core = mol1.GetSubstructMatch(core)
-#            mol2core = mol2.GetSubstructMatch(core)     
-#            mol1set = mol1set.difference(mol1core)
-#            mol2set = mol2set.difference(mol2core)
-#            coremap = set(zip(mol1core,mol2core))
-              
-            # prepare potential atom-atom mappings and create correspondance graph vertices
-            g = networkx.Graph()
-            for atom1 in mol1.GetAtoms():
-                for atom2 in mol2.GetAtoms():
-                    
-                    # store the CIP codes somewhere that doesn't throw errors on comparison when missing
-                    try: atom1._CIPCode = atom1.GetProp('_CIPCode')
-                    except KeyError: atom1._CIPCode = None
-                    try: atom2._CIPCode = atom2.GetProp('_CIPCode')
-                    except KeyError: atom2._CIPCode = None            
-        
-                    # set penalties - 3 strikes and you're out!
-                    __tempscore = 0
-                    if atom1.GetImplicitValence() != atom2.GetImplicitValence(): __tempscore += 1
-                    if atom1.GetAtomicNum() != atom2.GetAtomicNum(): __tempscore += 1
-                    if atom1.GetDegree() != atom2.GetDegree(): __tempscore += 1
-                    if atom1.IsInRing() != atom2.IsInRing(): __tempscore += 1
-                    if atom1._CIPCode != atom2._CIPCode: __tempscore += 1
-                    
-                    # set upper limit on penalty to 1
-                    __penalty = 3.0
-                    __tempscore = min(1, __tempscore/__penalty)              
-                    
-                    mapping = (atom1.GetIdx(), atom2.GetIdx(), __tempscore)
-                    g.add_node(mapping)
-#            g.add_nodes_from(coremap)
-            
-            # calculate distance matrices
-            dmat1 = Chem.GetDistanceMatrix(mol1)
-            dmat2 = Chem.GetDistanceMatrix(mol2)  
-
-            # create correspondance graph edges
-            for map1 in g.nodes_iter():
-                for map2 in g.nodes_iter():
-    
-                    # test if criteria are met for correspondance
-                    correspondance = dmat1[map1[0]][map2[0]] == dmat2[map1[1]][map2[1]]
-                    if correspondance: g.add_edge(map1, map2)
 #            networkx.draw(g2)
 #            plt.show()            
             
@@ -293,32 +250,31 @@ if __name__ == '__main__':
              
             # score the cliques and isolate RECS
 #            print "timer2: ", timeit.timeit('MMP(mol1,mol2).scoreCliques(list(find_cliques(g)))', 'from networkx.algorithms.clique import find_cliques; from __main__ import mol1, mol2, g, MMP', number = 1)
-            cliques = list(find_cliques(g))
-            mmp = MMP(mol1,mol2)
+            cliques = list(find_cliques(mmp))
             mmp.scoreCliques(cliques) 
             mmp.eliminateMCS()
                                     
             # write output
             writer.writerow([line['Context'], line['Molecule_L'], mmp.getFragmentA(), line['Molecule_R'], mmp.getFragmentB()])
                      
-            # create reaction
-            frag1 = Chem.rdmolops.AddHs(mmp.frag1)
-            frag2 = Chem.rdmolops.AddHs(mmp.frag2)
-            reaction = ChemicalReaction()
-            reaction.AddReactantTemplate(frag1)
-            reaction.AddProductTemplate(frag2)
-            reaction.Initialize()
-            
-            # test reaction
-            mol1 = Chem.rdmolops.AddHs(mol1)
-            for prod in reaction.RunReactants((mol1,))[0]:
-                for atom in prod.GetAtoms():
-                    atom.ClearProp('molAtomMapNumber')
-                prod = Chem.rdmolops.RemoveHs(prod)
-                print Chem.MolToSmiles(prod)
-                
-            # write reaction
-            rxnfile.write(ReactionToRxnBlock(reaction))     
+#            # create reaction
+#            frag1 = Chem.rdmolops.AddHs(mmp.frag1)
+#            frag2 = Chem.rdmolops.AddHs(mmp.frag2)
+#            reaction = ChemicalReaction()
+#            reaction.AddReactantTemplate(frag1)
+#            reaction.AddProductTemplate(frag2)
+#            reaction.Initialize()
+#            
+#            # test reaction (this can be slow and run out of memory)
+#            mol1 = Chem.rdmolops.AddHs(mol1)
+#            for prod in reaction.RunReactants((mol1,))[0]:
+#                for atom in prod.GetAtoms():
+#                    atom.ClearProp('molAtomMapNumber')
+#                prod = Chem.rdmolops.RemoveHs(prod)
+#                print Chem.MolToSmiles(prod)
+#                
+#            # write reaction
+#            rxnfile.write(ReactionToRxnBlock(reaction))     
             
 #            break       
             
