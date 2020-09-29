@@ -44,7 +44,7 @@ Options:
 Any .csv file featuring the columns "Molecule_L" and "Molecule_R" will serve as a suitable input file. An example input file is available here: https://github.com/warner121/wizepair2/blob/master/mmpa.in. 
 Simply specify input and output files and execute.
 ```
-(my-rdkit-env) ~/wizepair2$ python2 mmpa -h
+(my-rdkit-env) ~/wizepair2$ python2 mmpa -i mmpa.in -o mmpa.out
 infile = mmpa.in
 outfile = mmpa.out
 ```
