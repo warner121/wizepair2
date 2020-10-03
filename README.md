@@ -4,29 +4,23 @@ Python (re-)implementation of the algorithm described in: **WizePairZ: A Novel A
 ### Installation
 This implementation builds on the open source cheminformatics tooklik RDKit and the graph toolkit networkx. You must have a working copy of RDKit with python bindings installed. If you have issues following the steps below refer to the RDKit installation guide here: https://www.rdkit.org/docs/Install.html.  
 
-1. First create you anaconda environment.  
+1. Clone the wisepair2 repository e.g.  
 ```
-$ conda create -c rdkit -n my-rdkit-env rdkit
+$ git clone https://github.com/warner121/wizepair2.git
 ```
-2. Activate you new anaconda session.  
+2. Create your anaconda environment from the provided yaml.  
 ```
-$ conda activate my-rdkit-env
+$ conda env create -f environment.yaml
 ```
-3. In your new environment clone wisepair2 e.g.  
+3. Activate you new anaconda session.  
 ```
-(my-rdkit-env) $ git clone https://github.com/warner121/wizepair2.git
-```
-4. Install further dependencies including networkx using pip.  
-```
-(my-rdkit-env) $ cd wizepair2  
-
-(my-rdkit-env) ~/wizepair2$ pip2 install -r requirements.txt
+$ conda activate wizepair-env
 ```
 
 ### Execution
 Access the help by executing the program with the --help argument:
 ```
-(my-rdkit-env) ~/wizepair2$ python2 mmpa -h
+(my-rdkit-env) ~/wizepair2$ python mmpa -h
 
 Usage: mmpa [options]  
   
@@ -44,7 +38,7 @@ Options:
 Any .csv file featuring the columns "Molecule_L" and "Molecule_R" will serve as a suitable input file. An example input file is available here: https://github.com/warner121/wizepair2/blob/master/mmpa.in. 
 Simply specify input and output files and execute.
 ```
-(my-rdkit-env) ~/wizepair2$ python2 mmpa -i mmpa.in -o mmpa.out
+(my-rdkit-env) ~/wizepair2$ python mmpa -i mmpa.in -o mmpa.out
 infile = mmpa.in
 outfile = mmpa.out
 ```

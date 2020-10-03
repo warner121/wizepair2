@@ -52,8 +52,7 @@ if __name__ == '__main__':
             
             # process options
             (opts, args) = parser.parse_args(argv)
-            
-            if opts.verbose > 0:
+            if opts.verbose is not None and opts.verbose > 0:
                 print("verbosity level = %d" % opts.verbose)
             if opts.infile:
                 print("infile = %s" % opts.infile)
@@ -62,7 +61,7 @@ if __name__ == '__main__':
                 
         # MAIN BODY #
             
-        except Exception, e:
+        except Exception as e:
             indent = len(program_name) * " "
             sys.stderr.write(program_name + ": " + repr(e) + "\n")
             sys.stderr.write(indent + "  for help use --help")
