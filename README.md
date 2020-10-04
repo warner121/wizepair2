@@ -10,11 +10,11 @@ $ git clone https://github.com/warner121/wizepair2.git
 ```
 2. Create your anaconda environment from the provided yaml.  
 ```
-$ conda env create -f environment.yaml
+~/wizepair2$ conda env create -f environment.yaml
 ```
 3. Activate you new anaconda session.  
 ```
-$ conda activate wizepair-env
+~/wizepair2$ conda activate wizepair-env
 ```
 
 ### Execution
