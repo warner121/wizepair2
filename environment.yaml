@@ -3,8 +3,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - _libgcc_mutex=0.1=conda_forge
-  - _openmp_mutex=4.5
+  - rdkit=2020.03.6
   - backports=1.0
   - backports.functools_lru_cache=1.6.1
   - boost=1.74.0
@@ -26,25 +25,6 @@ dependencies:
   - jupyter_client=6.1.7
   - jupyter_core=4.6.3
   - lcms2=2.11
-  - ld_impl_linux-64=2.35
-  - libblas=3.8.0
-  - libcblas=3.8.0
-  - libffi=3.2.1
-  - libgcc-ng=9.3.0
-  - libgfortran-ng=7.5.0
-  - libgfortran4=7.5.0
-  - libgomp=9.3.0
-  - libiconv=1.16
-  - liblapack=3.8.0
-  - libopenblas=0.3.10
-  - libpng=1.6.37
-  - libsodium=1.0.18
-  - libstdcxx-ng=9.3.0
-  - libtiff=4.1.0
-  - libuuid=2.32.1
-  - libwebp-base=1.1.0
-  - libxcb=1.13
-  - libxml2=2.9.10
   - lz4-c=1.9.2
   - ncurses=6.2
   - numpy=1.19.1
@@ -67,7 +47,6 @@ dependencies:
   - python_abi=3.6=1_cp36m
   - pytz=2020.1
   - pyzmq=19.0.2
-  - rdkit=2020.03.6
   - readline=8.0
   - setuptools=49.6.0
   - simplegeneric=0.8.1
