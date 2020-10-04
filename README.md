@@ -8,11 +8,15 @@ This implementation builds on the open source cheminformatics tooklik RDKit and 
 ```
 $ git clone https://github.com/warner121/wizepair2.git
 ```
-2. Create your anaconda environment from the provided yaml.  
+2. Ensure your anaconda install is up to date.
+```
+conda update -n base -c defaults conda
+```
+3. Create your anaconda environment from the provided yaml.  
 ```
 ~/wizepair2$ conda env create -f environment.yaml
 ```
-3. Activate you new anaconda session.  
+4. Activate you new anaconda session.  
 ```
 ~/wizepair2$ conda activate wizepair-env
 ```
