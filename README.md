@@ -2,7 +2,7 @@
 Python (re-)implementation of the algorithm described in: **WizePairZ: A Novel Algorithm to Identify, Encode, and Exploit Matched Molecular Pairs with Unspecified Cores in Medicinal Chemistry** by Daniel J. Warner, Edward J. Griffen, and Stephen A. St-Gallay: *J. Chem. Inf. Model. 2010, 50, 8, 1350–1357, August 6, 2010.*
 
 ### Installation
-This implementation builds on the open source cheminformatics tooklik RDKit and the graph toolkit networkx. You must have a working copy of RDKit with python bindings installed. If you have issues following the steps below refer to the RDKit installation guide here: https://www.rdkit.org/docs/Install.html.  
+This implementation builds on the open source cheminformatics toolkit RDKit and the graph toolkit networkx. You must have a working copy of RDKit with python bindings installed. If you have issues following the steps below refer to the RDKit installation guide here: https://www.rdkit.org/docs/Install.html.  
 
 1. Clone the wisepair2 repository e.g.  
 ```
@@ -10,7 +10,7 @@ $ git clone https://github.com/warner121/wizepair2.git
 ```
 2. Ensure your anaconda install is up to date.
 ```
-conda update -n base -c defaults conda
+$ conda update -n base -c defaults conda
 ```
 3. Create your anaconda environment from the provided yaml.  
 ```
