@@ -18,21 +18,35 @@ class MMP(networkx.Graph):
         # TODO(warner121@hotmail.com): be good to check here, I guess?
         if mol: self._mol1 = mol
             
+        # add hydrogen where defining isomer
+        isomerics = []
+        for atom in self._mol1.GetAtoms():
+            if not atom.HasProp('_CIPCode'): continue
+            isomerics.append(atom.GetIdx())
+        self._mol1 = Chem.AddHs(self._mol1, onlyOnAtoms=isomerics, explicitOnly=True)
+                      
         # clear mappings and initialise radii (assume all atoms are RECS)
         for atom in self._mol1.GetAtoms(): 
             atom.SetProp('molAtomRadius','0')
             atom.ClearProp('molAtomMapNumber')
-            
+  
     def setMol2(self, mol=None):
         
         # TODO(warner121@hotmail.com): be good to check here, I guess?
         if mol: self._mol2 = mol
             
+        # add hydrogen where defining isomer
+        isomerics = []
+        for atom in self._mol2.GetAtoms():
+            if not atom.HasProp('_CIPCode'): continue
+            isomerics.append(atom.GetIdx())
+        self._mol2 = Chem.AddHs(self._mol2, onlyOnAtoms=isomerics, explicitOnly=True)
+            
         # clear mappings and initialise radii (assume all atoms are RECS)
         for atom in self._mol2.GetAtoms(): 
             atom.SetProp('molAtomRadius','0')
             atom.ClearProp('molAtomMapNumber')
-                        
+                                          
     def createCorrespondence(self, penalty=3.0):
         
         mol1 = self._mol1
@@ -50,6 +64,7 @@ class MMP(networkx.Graph):
                 # set penalties - 3 strikes and you're out!
                 __tempscore = 0
                 if atom1.GetImplicitValence() != atom2.GetImplicitValence(): __tempscore += 1
+                if atom1.GetExplicitValence() != atom2.GetExplicitValence(): __tempscore += 1
                 if atom1.GetAtomicNum() != atom2.GetAtomicNum(): __tempscore += 1
                 if atom1.GetDegree() != atom2.GetDegree(): __tempscore += 1
                 if atom1.IsInRing() != atom2.IsInRing(): __tempscore += 1
@@ -140,7 +155,7 @@ class MMP(networkx.Graph):
             toRemove = set(range(mol.GetNumAtoms()))
             for atom in mol.GetAtoms():
                 if atom.GetProp('molAtomRadius') ==  '0':
-                    for idx in Chem.FindAtomEnvironmentOfRadiusN(mol, 3, atom.GetIdx()):
+                    for idx in Chem.FindAtomEnvironmentOfRadiusN(mol, 4, atom.GetIdx()):
                         envBond = mol.GetBondWithIdx(idx)
                         toRemove.discard(envBond.GetBeginAtom().GetIdx())
                         toRemove.discard(envBond.GetEndAtom().GetIdx())
@@ -152,6 +167,7 @@ class MMP(networkx.Graph):
             for atom in toRemove: frag.RemoveAtom(atom)
             frag = frag.GetMol()
 #            frag.Debug()  
+#            Chem.AssignStereochemistry(frag, cleanIt=True, force=True)
             return frag
       
         self.frag1 = eliminate(self._mol1)
