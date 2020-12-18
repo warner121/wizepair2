@@ -24,26 +24,27 @@ $ conda update -n base -c defaults conda
 ### Execution
 Access the help by executing the program with the --help argument:
 ```
-(my-rdkit-env) ~/wizepair2$ python mmpa -h
+(wizepair-env) daniel@daniel-desktop:~/wizepair2$ python mmpa --help
+Usage: mmpa [options]
 
-Usage: mmpa [options]  
-  
-Copyright 2013 Daniel Warner  
-Licensed under the Apache License 2.0  
-http://www.apache.org/licenses/LICENSE-2.0  
+Copyright 2013 Daniel Warner
+Licensed under the Apache License 2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
-Options:  
-  --version            show program's version number and exit  
-  -h, --help           show this help message and exit  
-  -i FILE, --in=FILE   set input path [default: ./mmpa.in]  
-  -o FILE, --out=FILE  set output path [default: ./mmpa.out]  
+Options:
+  --version            show program's version number and exit
+  -h, --help           show this help message and exit
+  -i FILE, --in=FILE   set input path [default: ./mmpa.in]
+  -o FILE, --out=FILE  set output path [default: ./mmpa.out]
+  -r FILE, --rxn=FILE  set reaction path [default: ./mmpa.rxn]
   -v, --verbose        set verbosity level [default: none]
 ```
 Any .csv file featuring the columns "Molecule_L" and "Molecule_R" will serve as a suitable input file. An example input file is available here: https://github.com/warner121/wizepair2/blob/master/mmpa.in. 
 Simply specify input and output files and execute.
 ```
-(wizepair-env) ~/wizepair2$ python mmpa -i mmpa.in -o mmpa.out
+(wizepair-env) daniel@daniel-desktop:~/wizepair2$ python mmpa -i mmpa.in -o mmpa.out -r mmpa.rxn
 infile = mmpa.in
 outfile = mmpa.out
+rxnfile = mmpa.rxn
 ```
 The results may then be found in the designated output file.
