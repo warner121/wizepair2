@@ -1,57 +1,56 @@
-import csv
-#import pprint
-import sys
-import os
+import json
 import networkx
-#import matplotlib.pyplot as plt
 
-from optparse import OptionParser
 from rdkit import Chem
-from rdkit.Chem.rdChemReactions import ChemicalReaction, ReactionToRxnBlock
+from func_timeout import func_timeout, FunctionTimedOut
 from networkx.algorithms.clique import find_cliques
-import timeit
-    
-class MMP(networkx.Graph):
 
-    def setMol1(self, mol=None):
+class MMP():
+
+    @staticmethod
+    def __molFromSmiles(smiles: str):
         
-        # TODO(warner121@hotmail.com): be good to check here, I guess?
-        if mol: self._mol1 = mol
+        # pasre smiles
+        try: mol = Chem.MolFromSmiles(smiles)
+        except: return None
             
         # add hydrogen where defining isomer
         isomerics = []
-        for atom in self._mol1.GetAtoms():
+        for atom in mol.GetAtoms():
             if not atom.HasProp('_CIPCode'): continue
             isomerics.append(atom.GetIdx())
-        self._mol1 = Chem.AddHs(self._mol1, onlyOnAtoms=isomerics, explicitOnly=True)
+        mol = Chem.AddHs(mol, onlyOnAtoms=isomerics, explicitOnly=True)
                       
         # clear mappings and initialise radii (assume all atoms are RECS)
-        for atom in self._mol1.GetAtoms(): 
+        for atom in mol.GetAtoms(): 
             atom.SetProp('molAtomRadius','0')
             atom.ClearProp('molAtomMapNumber')
-  
-    def setMol2(self, mol=None):
+            
+        # return
+        return mol
+    
+    def __init__(self, smiles_x: str, smiles_y: str):
         
-        # TODO(warner121@hotmail.com): be good to check here, I guess?
-        if mol: self._mol2 = mol
-            
-        # add hydrogen where defining isomer
-        isomerics = []
-        for atom in self._mol2.GetAtoms():
-            if not atom.HasProp('_CIPCode'): continue
-            isomerics.append(atom.GetIdx())
-        self._mol2 = Chem.AddHs(self._mol2, onlyOnAtoms=isomerics, explicitOnly=True)
-            
-        # clear mappings and initialise radii (assume all atoms are RECS)
-        for atom in self._mol2.GetAtoms(): 
-            atom.SetProp('molAtomRadius','0')
-            atom.ClearProp('molAtomMapNumber')
-                                          
+        # initialise molecules for comparison
+        self._mol1 = self.__molFromSmiles(smiles_x)
+        self._mol2 = self.__molFromSmiles(smiles_y)
+        
+        # intialise correspondance graph
+        self._graph = networkx.Graph()
+       
     def createCorrespondence(self, penalty=3.0):
+        '''
+        Build the correspondance matrix from which to determine the MCS. 
         
+        Each atomic pairing is assigned a providional score, from 0 (identical) to 1 (at least [penalty] differences detected). 
+        This pairwise score is attached to the nodes alongside the atomic indices.
+        '''
+        
+        # create local ref for input molecules
         mol1 = self._mol1
         mol2 = self._mol2
             
+        # iterate over all potential atom-atom pairings
         for atom1 in mol1.GetAtoms():
             for atom2 in mol2.GetAtoms():
                 
@@ -61,69 +60,48 @@ class MMP(networkx.Graph):
                 try: atom2._CIPCode = atom2.GetProp('_CIPCode')
                 except KeyError: atom2._CIPCode = None            
     
-                # set penalties - 3 strikes and you're out!
+                # set penalties - [penalty] strikes and you're out!
                 __tempscore = 0
+                if atom1.GetAtomicNum() != atom2.GetAtomicNum(): __tempscore += 1
                 if atom1.GetImplicitValence() != atom2.GetImplicitValence(): __tempscore += 1
                 if atom1.GetExplicitValence() != atom2.GetExplicitValence(): __tempscore += 1
-                if atom1.GetAtomicNum() != atom2.GetAtomicNum(): __tempscore += 1
+                if atom1.GetFormalCharge() != atom2.GetFormalCharge(): __tempscore += 1
+                if atom1.GetIsAromatic() != atom2.GetIsAromatic(): __tempscore += 1
                 if atom1.GetDegree() != atom2.GetDegree(): __tempscore += 1
                 if atom1.IsInRing() != atom2.IsInRing(): __tempscore += 1
                 if atom1._CIPCode != atom2._CIPCode: __tempscore += 1
                 
-                # set upper limit on penalty to 1
+                # set upper limit on penalty to 1 and append to node
                 __tempscore = min(1, __tempscore/penalty)              
                 mapping = (atom1.GetIdx(), atom2.GetIdx(), __tempscore)
-                if __tempscore < 1: self.add_node(mapping) 
+                if __tempscore < 1: self._graph.add_node(mapping) 
         
         # calculate distance matrices
         __dmat1 = Chem.GetDistanceMatrix(mol1)
         __dmat2 = Chem.GetDistanceMatrix(mol2)  
 
         # create correspondance graph edges
-        for map1 in self.nodes():
-            for map2 in self.nodes():
+        for map1 in self._graph.nodes():
+            for map2 in self._graph.nodes():
 
                 # test if criteria are met for correspondance
                 correspondance = __dmat1[map1[0]][map2[0]] == __dmat2[map1[1]][map2[1]]
-                if correspondance: self.add_edge(map1, map2)        
-    
-    def __setMappings(self, clique):        
-
-        # iterate over the remaining mappings identified from MCSS
-        for pair in clique:
-            
-            # increment the index to prevent atom mappings of 0
-            mapIdx = clique.index(pair) + 1
-            
-            # map first atom and set radius to 99 (atom part of MCS)
-            atom1 = self._mol1.GetAtomWithIdx(pair[0])
-            atom1.SetProp('molAtomMapNumber','%d'%mapIdx)
-            
-            # map second atom and set radius to 99 (atom part of MCS)
-            atom2 = self._mol2.GetAtomWithIdx(pair[1])
-            atom2.SetProp('molAtomMapNumber','%d'%mapIdx)
-    
-    def __flagMCS(self, mcs):
-
-        # iterate over the remaining mappings identified from MCSS
-        for pair in mcs:
-            
-            # map first atom and set radius to 99 (atom part of MCS)
-            atom1 = self._mol1.GetAtomWithIdx(pair[0])
-            atom1.SetProp('molAtomRadius','99')
-            
-            # map second atom and set radius to 99 (atom part of MCS)
-            atom2 = self._mol2.GetAtomWithIdx(pair[1])
-            atom2.SetProp('molAtomRadius','99')
-                                            
-    def scoreCliques(self, cliques):
+                if correspondance: self._graph.add_edge(map1, map2)       
+                    
+    def findCliques(self, timeout=60):
+                    
+        # define function with no arguments for use with timeout function
+        def findCliquesNoArgs(): return list(find_cliques(self._graph))
         
-        # initialise
+        # try finding cliques within [timeout] seconds
+        try:
+            cliques = func_timeout(timeout, findCliquesNoArgs)
+        except FunctionTimedOut:
+            logging.warning(json.dumps({"message": "failed to find cliques in {} seconds".format(timeout)}))
+            return None
+            
+        # score (largest cliques first)
         bestscore = -1E800
-        bestmcs = None    
-        bestclique = None            
-        
-        # score largest cliques first
         cliques.sort(key=len, reverse=True)
         for clique in cliques:   
             
@@ -135,19 +113,58 @@ class MMP(networkx.Graph):
             # iterate over the mappings identified from MCSS
             for pair in clique:
                 score = score - pair[2] # lookup predefined score penalty
-                if pair[2]: mcs.remove(pair) # flag atoms as RECS in addition to those not mapped
+                if pair[2]: mcs.remove(pair) # postive score marks discrepancy, mcs will contain only identical pairings
 
             # store results if best so far
             if score > bestscore:
                 bestscore = score
                 bestmcs = mcs
                 bestclique = clique  
+                
+        # store results
+        self._clique = bestclique
+        self._mcs = bestmcs
+    
+    def __setAtomMapNumbers(self):        
+        '''
+        Use the indices of the best scoring clique to define the atom mappings.
+        '''
 
-        # map all atoms in clique and flag MCS
-        self.__setMappings(bestclique)
-        self.__flagMCS(bestmcs)
-        
+        # iterate over the remaining mappings identified from MCSS
+        for pair in self._clique:
+            
+            # increment the index to prevent atom mappings of 0
+            mapIdx = self._clique.index(pair) + 1
+            
+            # map first atom and set radius to 99 (atom part of MCS)
+            atom1 = self._mol1.GetAtomWithIdx(pair[0])
+            atom1.SetProp('molAtomMapNumber','%d'%mapIdx)
+            
+            # map second atom and set radius to 99 (atom part of MCS)
+            atom2 = self._mol2.GetAtomWithIdx(pair[1])
+            atom2.SetProp('molAtomMapNumber','%d'%mapIdx)
+    
+    def __setAtomRadii(self):
+        '''
+        Use the atomic radii to denote which atoms are part of the MCS. By elimination, those atoms with radii of 0 will form the RECS.
+        '''
+
+        # iterate over the remaining mappings identified from MCSS
+        for pair in self._mcs:
+            
+            # map first atom and set radius to 99 (atom part of MCS)
+            atom1 = self._mol1.GetAtomWithIdx(pair[0])
+            atom1.SetProp('molAtomRadius','99')
+            
+            # map second atom and set radius to 99 (atom part of MCS)
+            atom2 = self._mol2.GetAtomWithIdx(pair[1])
+            atom2.SetProp('molAtomRadius','99')
+
     def eliminateMCS(self):
+        
+        # mark up atom mappings and MCS/RECS split
+        self.__setAtomMapNumbers()
+        self.__setAtomRadii()
         
         def eliminate(mol):
         
@@ -166,21 +183,31 @@ class MMP(networkx.Graph):
             frag = Chem.EditableMol(mol)
             for atom in toRemove: frag.RemoveAtom(atom)
             frag = frag.GetMol()
-#            frag.Debug()  
-#            Chem.AssignStereochemistry(frag, cleanIt=True, force=True)
             return frag
       
-        self.frag1 = eliminate(self._mol1)
-        self.frag2 = eliminate(self._mol2)
+        self._frag1 = eliminate(self._mol1)
+        self._frag2 = eliminate(self._mol2)
         
-    def getFragmentA(self):
+    def getFragment1(self):
         
-        frag = Chem.EditableMol(self.frag1).GetMol()
+        frag = Chem.EditableMol(self._frag1).GetMol()
         for atom in frag.GetAtoms(): atom.ClearProp('molAtomMapNumber')
         return Chem.MolToSmiles(frag)
     
-    def getFragmentB(self):
+    def getFragment2(self):
         
-        frag = Chem.EditableMol(self.frag2).GetMol()
+        frag = Chem.EditableMol(self._frag2).GetMol()
         for atom in frag.GetAtoms(): atom.ClearProp('molAtomMapNumber')
         return Chem.MolToSmiles(frag)        
+
+    def getSmirks(self):
+        '''
+        Generate SMIRKS, ensuring reaction denotes a simple 1:1 mapping of fragments.
+        
+        Hydrogens are added to ensure the transformation may only be applied in the appropriate molecular environment.
+        '''
+        
+        smirks = '{}>>{}'.format(Chem.MolToSmarts(Chem.AddHs(self._frag1)), Chem.MolToSmarts(Chem.AddHs(self._frag2)))
+        rxn = Chem.rdChemReactions.ReactionFromSmarts(smirks)
+        if rxn.GetNumReactantTemplates() != 1 or rxn.GetNumProductTemplates() != 1: return None
+        return smirks
