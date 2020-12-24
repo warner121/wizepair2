@@ -1,5 +1,6 @@
 import json
 import networkx
+import numpy as np
 
 from rdkit import Chem
 from func_timeout import func_timeout, FunctionTimedOut
@@ -10,7 +11,7 @@ class MMP():
     @staticmethod
     def __molFromSmiles(smiles: str):
         
-        # pasre smiles
+        # parse smiles
         try: mol = Chem.MolFromSmiles(smiles)
         except: return None
             
@@ -29,16 +30,28 @@ class MMP():
         # return
         return mol
     
-    def __init__(self, smiles_x: str, smiles_y: str):
+    def __init__(self, smiles_x: str, smiles_y: str, fuzziness=4):
+        '''
+        Initialise the matched molecular pair.
+        
+        smiles_x: First molecule to compare.
+        smiles_y: Second molecule to compare.
+        fuzziness: Integer (1-8) to indicate how tolerant the algortitm should to be to atom-wise differences in the construction of the correspondance graph. 
+            1 (fastest) atoms chmically identical to be considered part of mcss. 
+            8 (slowest) purely topological comparison of structures. 
+        '''
         
         # initialise molecules for comparison
         self._mol1 = self.__molFromSmiles(smiles_x)
         self._mol2 = self.__molFromSmiles(smiles_y)
         
+        # set fuzziness
+        self._fuzz = fuzziness
+        
         # intialise correspondance graph
         self._graph = networkx.Graph()
        
-    def createCorrespondence(self, penalty=3.0):
+    def createCorrespondence(self):
         '''
         Build the correspondance matrix from which to determine the MCS. 
         
@@ -49,10 +62,20 @@ class MMP():
         # create local ref for input molecules
         mol1 = self._mol1
         mol2 = self._mol2
+        
+        # calculate distance matrices
+        __dmat1 = Chem.GetDistanceMatrix(mol1)
+        __dmat2 = Chem.GetDistanceMatrix(mol2) 
             
         # iterate over all potential atom-atom pairings
         for atom1 in mol1.GetAtoms():
             for atom2 in mol2.GetAtoms():
+
+                # create description of how central in molecule atom is (useful in a tie)
+                cntl1 = np.max(__dmat1[atom1.GetIdx()])
+                cntl1 = np.mean(__dmat1[atom1.GetIdx()]/cntl1)
+                cntl2 = np.max(__dmat2[atom2.GetIdx()])
+                cntl2 = np.mean(__dmat2[atom2.GetIdx()]/cntl2)
                 
                 # store the CIP codes somewhere that doesn't throw errors on comparison when missing
                 try: atom1._CIPCode = atom1.GetProp('_CIPCode')
@@ -70,15 +93,12 @@ class MMP():
                 if atom1.GetDegree() != atom2.GetDegree(): __tempscore += 1
                 if atom1.IsInRing() != atom2.IsInRing(): __tempscore += 1
                 if atom1._CIPCode != atom2._CIPCode: __tempscore += 1
+                __tempscore += 0.001 * np.linalg.norm(cntl1 - cntl2)
                 
-                # set upper limit on penalty to 1 and append to node
-                __tempscore = min(1, __tempscore/penalty)              
+                # set upper limit on score deductions to 1 and append to node
+                __tempscore = min(1, __tempscore/self._fuzz)              
                 mapping = (atom1.GetIdx(), atom2.GetIdx(), __tempscore)
-                if __tempscore < 1: self._graph.add_node(mapping) 
-        
-        # calculate distance matrices
-        __dmat1 = Chem.GetDistanceMatrix(mol1)
-        __dmat2 = Chem.GetDistanceMatrix(mol2)  
+                if __tempscore < 1: self._graph.add_node(mapping)  
 
         # create correspondance graph edges
         for map1 in self._graph.nodes():
@@ -113,7 +133,7 @@ class MMP():
             # iterate over the mappings identified from MCSS
             for pair in clique:
                 score = score - pair[2] # lookup predefined score penalty
-                if pair[2]: mcs.remove(pair) # postive score marks discrepancy, mcs will contain only identical pairings
+                if pair[2] >= (1.0/self._fuzz): mcs.remove(pair) # score > thrshold marks atom discrepancy, mcs will contain only identical pairings
 
             # store results if best so far
             if score > bestscore:
@@ -124,7 +144,11 @@ class MMP():
         # store results
         self._clique = bestclique
         self._mcs = bestmcs
-    
+
+    def getPercentMCS(self):
+        
+        return 200.0 * len(self._mcs) / (self._mol1.GetNumAtoms() + self._mol2.GetNumAtoms())        
+
     def __setAtomMapNumbers(self):        
         '''
         Use the indices of the best scoring clique to define the atom mappings.
@@ -160,7 +184,7 @@ class MMP():
             atom2 = self._mol2.GetAtomWithIdx(pair[1])
             atom2.SetProp('molAtomRadius','99')
 
-    def eliminateMCS(self):
+    def eliminateMCS(self, radius=4):
         
         # mark up atom mappings and MCS/RECS split
         self.__setAtomMapNumbers()
@@ -172,7 +196,7 @@ class MMP():
             toRemove = set(range(mol.GetNumAtoms()))
             for atom in mol.GetAtoms():
                 if atom.GetProp('molAtomRadius') ==  '0':
-                    for idx in Chem.FindAtomEnvironmentOfRadiusN(mol, 4, atom.GetIdx()):
+                    for idx in Chem.FindAtomEnvironmentOfRadiusN(mol, radius, atom.GetIdx()):
                         envBond = mol.GetBondWithIdx(idx)
                         toRemove.discard(envBond.GetBeginAtom().GetIdx())
                         toRemove.discard(envBond.GetEndAtom().GetIdx())

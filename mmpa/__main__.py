@@ -75,8 +75,8 @@ if __name__ == '__main__':
         for line in reader:
             
             # prepare potential atom-atom mappings and create correspondence graph
-            mmp = MMP(line['Molecule_L'], line['Molecule_R'])
-            mmp.createCorrespondence(penalty=3.0)
+            mmp = MMP(line['Molecule_L'], line['Molecule_R'], fuzziness=5)
+            mmp.createCorrespondence()
             mmp.findCliques()
             mmp.eliminateMCS()
 
