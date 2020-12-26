@@ -214,15 +214,15 @@ class MMP():
         
     def getFragment1(self):
         
-        frag = Chem.EditableMol(self._frag1).GetMol()
+        frag = Chem.Mol(self._frag1)
         for atom in frag.GetAtoms(): atom.ClearProp('molAtomMapNumber')
-        return Chem.MolToSmiles(frag)
+        return Chem.MolToSmiles(frag, allHsExplicit=True)
     
     def getFragment2(self):
         
-        frag = Chem.EditableMol(self._frag2).GetMol()
+        frag = Chem.Mol(self._frag2)
         for atom in frag.GetAtoms(): atom.ClearProp('molAtomMapNumber')
-        return Chem.MolToSmiles(frag)        
+        return Chem.MolToSmiles(frag, allHsExplicit=True)
 
     def getSmirks(self):
         '''
