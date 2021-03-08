@@ -5,9 +5,9 @@ Created on 24 Nov 2012
 '''
 
 __all__ = []
-__version__ = 0.11
+__version__ = 0.12
 __date__ = '2012-11-19'
-__updated__ = '2020-09-29'
+__updated__ = '2021-03-08'
 
 import csv
 import sys
@@ -76,15 +76,13 @@ if __name__ == '__main__':
             
             # prepare potential atom-atom mappings and create correspondence graph
             mmp = MMP(line['Molecule_L'], line['Molecule_R'], fuzziness=5)
-            mmp.createCorrespondence()
-            mmp.findCliques()
-            mmp.eliminateMCS()
+            mmp.execute()
 
             # write output
-            writer.writerow([line['Context'], line['Molecule_L'], mmp.getFragment1(), line['Molecule_R'], mmp.getFragment2()])
+            writer.writerow([line['Context'], line['Molecule_L'], mmp._frag1, line['Molecule_R'], mmp._frag2])
                  
             # create reaction
-            reaction = ReactionFromSmarts(mmp.getSmirks())
+            reaction = ReactionFromSmarts(mmp._smirks)
 
             # write reaction
             rxnfile.write(ReactionToRxnBlock(reaction))     
