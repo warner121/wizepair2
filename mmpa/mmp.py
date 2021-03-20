@@ -151,22 +151,20 @@ class MMP():
             8 (slowest) purely topological comparison of structures. 
         '''
         
-        # retain smiles
-        self._smiles1 = smiles_x
-        self._smiles2 = smiles_y
-        
+        # canonicalise smiles
+        self._smiles1 = Chem.MolToSmiles(Chem.MolFromSmiles(smiles_x))
+        self._smiles2 = Chem.MolToSmiles(Chem.MolFromSmiles(smiles_y))
+         
         # initialise molecules for comparison
         self._mol1 = self.__molFromSmiles(self._smiles1)
         self._mol2 = self.__molFromSmiles(self._smiles2)
-
+        
         # intialise correspondance graph
         self._graph = CorrespondenceGraph(self._mol1, self._mol2, fuzziness)
         
         # dummy vars
         self._clique = None
         self._mcs = None
-        self._frag1 = None
-        self._frag2 = None
         
     def __search(self):
         
@@ -211,7 +209,7 @@ class MMP():
             atom2 = self._mol2.GetAtomWithIdx(pair[1])
             atom2.SetProp('molAtomRadius','99')
 
-    def execute(self, radius=4):
+    def execute(self, radii=4):
                 
         # search, mark up atom mappings and MCS/RECS split
         self.__search()
@@ -219,7 +217,7 @@ class MMP():
         self.__setAtomRadii()
         
         # define function for elimination of MCS
-        def eliminate(mol):
+        def eliminate(mol, radius):
         
             # tag atoms within 4 bonds of attachment
             toRemove = set(range(mol.GetNumAtoms()))
@@ -238,37 +236,51 @@ class MMP():
             frag = frag.GetMol()
             return frag
       
-        # Define reaction as SMIRKS while mappings still present
-        frag1 = eliminate(self._mol1)
-        frag2 = eliminate(self._mol2)   
-        smirks = '{}>>{}'.format(Chem.MolToSmarts(Chem.AddHs(frag1)), Chem.MolToSmarts(Chem.AddHs(frag2)))
-        self._smirks = smirks
-
-        # verify 1:1 reaction
-        rxn = Chem.rdChemReactions.ReactionFromSmarts(self._smirks)
-        if rxn.GetNumReactantTemplates() != 1 or rxn.GetNumProductTemplates() != 1: 
-            logging.info(json.dumps({"message": "no 1:1 reaction could be generated"}))
-            return {}
+        # loop from 4 down to 1 bond radius to find smallest valid transformation
+        responselist = list()
+        for radius in reversed(range(radii+1)):
             
-        # verify derived reaction produces original 'product'
-        productset = rxn.RunReactants((Chem.AddHs(Chem.MolFromSmiles(self._smiles1)),))
-        productlist = []
-        for product in productset:
-            productlist.append('.'.join([Chem.MolToSmiles(Chem.RemoveHs(productpart)) for productpart in product]))
-        if self._smiles2 not in productlist:
-            logging.warning(json.dumps({"message": "second molecule not found amongst products enumerated from first"}))
-            return {}
-    
-        # remove mappings to yield clean fragments
-        for atom in frag1.GetAtoms(): atom.ClearProp('molAtomMapNumber')
-        self._frag1 = Chem.MolToSmiles(frag1, allHsExplicit=True)
-        for atom in frag2.GetAtoms(): atom.ClearProp('molAtomMapNumber')
-        self._frag2 = Chem.MolToSmiles(frag2, allHsExplicit=True)
-        
-        # return key response elements
-        return {'smiles1': self._smiles1,
-                'smiles2': self._smiles2,
-                'fragment1': self._frag1,
-                'fragment2': self._frag2,
-                'percentmcs': self._percentmcs,
-                'smirks': self._smirks}
+            # return list of valid transformations
+            if radius == 0: return responselist
+            
+            # initialise response object
+            response = {'smiles1': self._smiles1,
+                        'smiles2': self._smiles2,
+                        'percentmcs': self._percentmcs,
+                        'radius': radius,
+                        'valid': False}
+            
+            # Define reaction as SMIRKS while mappings still present
+            frag1 = eliminate(self._mol1, radius)
+            frag2 = eliminate(self._mol2, radius)   
+            smirks = '{}>>{}'.format(Chem.MolToSmarts(Chem.AddHs(frag1)), Chem.MolToSmarts(Chem.AddHs(frag2)))
+            response['smirks'] = smirks
+            
+            # verify 1:1 reaction
+            rxn = Chem.rdChemReactions.ReactionFromSmarts(smirks)
+            if rxn.GetNumReactantTemplates() != 1 or rxn.GetNumProductTemplates() != 1: 
+                logging.info(json.dumps({'radius': radius, "message": "no 1:1 reaction could be generated"}))
+                responselist.append(response)
+                continue
+
+            # verify derived reaction produces original 'product'
+            productset = rxn.RunReactants((Chem.AddHs(Chem.MolFromSmiles(self._smiles1)),))
+            productlist = list()
+            for product in productset:
+                productlist.append('.'.join([Chem.MolToSmiles(Chem.RemoveHs(productpart)) for productpart in product]))
+            if self._smiles2 not in productlist:
+                logging.info(json.dumps({'radius': radius, "message": "second molecule not found amongst products enumerated from first"}))
+                responselist.append(response)
+                continue
+
+            # remove mappings to yield clean fragments
+            for atom in frag1.GetAtoms(): atom.ClearProp('molAtomMapNumber')
+            frag1 = Chem.MolToSmiles(frag1, allHsExplicit=True)
+            for atom in frag2.GetAtoms(): atom.ClearProp('molAtomMapNumber')
+            frag2 = Chem.MolToSmiles(frag2, allHsExplicit=True)
+
+            # return key response elements
+            response['valid'] = True
+            response['fragment1'] = frag1
+            response['fragment2'] = frag2
+            responselist.append(response)
