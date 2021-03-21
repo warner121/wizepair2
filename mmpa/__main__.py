@@ -67,7 +67,7 @@ if __name__ == '__main__':
         # open file handles
         outfile = open(opts.outfile, 'w')
         writer = csv.writer(outfile, delimiter=',')
-        writer.writerow(['Context', 'Mol_L', 'Frag_L', 'Mol_R', 'Frag_R'])
+        writer.writerow(['Context', 'Mol_L', 'Frag_L', 'Mol_R', 'Frag_R', 'Radius'])
         rxnfile = open(opts.rxnfile, 'w')        
         
         infile = open(opts.infile, 'r')
@@ -76,16 +76,20 @@ if __name__ == '__main__':
             
             # prepare potential atom-atom mappings and create correspondence graph
             mmp = MMP(line['Molecule_L'], line['Molecule_R'], fuzziness=5)
-            mmp.execute()
+            mmpout = mmp.execute()
 
-            # write output
-            writer.writerow([line['Context'], line['Molecule_L'], mmp._frag1, line['Molecule_R'], mmp._frag2])
-                 
-            # create reaction
-            reaction = ReactionFromSmarts(mmp._smirks)
+            for pair in mmpout:
+                
+                if len(pair) < 8: continue
+                
+                # write output
+                writer.writerow([line['Context'], line['Molecule_L'], pair['fragment1'], line['Molecule_R'], pair['fragment2'], pair['radius']])
 
-            # write reaction
-            rxnfile.write(ReactionToRxnBlock(reaction))     
+                # create reaction
+                reaction = ReactionFromSmarts(pair['smirks'])
+
+                # write reaction
+                rxnfile.write(ReactionToRxnBlock(reaction))     
 #            break       
             
         # close file handles
