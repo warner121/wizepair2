@@ -45,6 +45,7 @@ class CorrespondenceGraph(networkx.Graph):
             for atom2 in mol2.GetAtoms():
 
                 # set penalties - [penalty] strikes and you're out!
+                # TODO: move atomic properies to graph 
                 mismatches = 0
                 if atom1.GetAtomicNum() != atom2.GetAtomicNum(): mismatches += 1
                 if atom1.GetImplicitValence() != atom2.GetImplicitValence(): mismatches += 1
