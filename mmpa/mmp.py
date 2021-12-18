@@ -12,16 +12,18 @@ class CorrespondenceGraph(networkx.Graph):
     Build the correspondance matrix of putative atom pairings, from which to determine the maximal clique (comprising the MCS). 
     '''
     
-    def __init__(self, mol1, mol2, fuzziness):
+    def __init__(self):
+
+        # inherit from networkx.Graph
+        super().__init__(self)
+
+    def build(self, mol1, mol2, fuzziness):
         '''
-        Instantiate the correspondance graph.
+        Build the correspondance graph.
         
         Each atomic pairing is assigned a providional score, from 0 (identical) to 1 (fewer than [fuzziness] differences detected). 
         This pairwise score is included in a tuple representing the each node, alongside the atomic indices.
         '''
-        
-        # inherit from networkx.Graph
-        super().__init__(self)
         
         # store fuzziness for scoring
         self._fuzz = fuzziness
@@ -59,7 +61,7 @@ class CorrespondenceGraph(networkx.Graph):
                 # apply jitter in the event of a tie
                 peripherality1 = getPeripherality(atom1, dmat1)
                 peripherality2 = getPeripherality(atom2, dmat2)
-                mismatches += 0.001 * np.linalg.norm(peripherality1 - peripherality2)
+                mismatches += 0.001 * abs(peripherality1 - peripherality2)
                 
                 # set upper limit on score deductions to 1 and append to node
                 mismatches = min(1, mismatches/self._fuzz)              
@@ -74,7 +76,7 @@ class CorrespondenceGraph(networkx.Graph):
                 correspondance = dmat1[map1[0]][map2[0]] == dmat2[map1[1]][map2[1]]
                 if correspondance: self.add_edge(map1, map2)       
                     
-    def execute(self, timeout=60):
+    def solve(self, timeout=60):
         '''
         Execute the maximal clique search.
         
@@ -161,7 +163,8 @@ class MMP():
         self._mol2 = self.__molFromSmiles(self._smiles2)
         
         # intialise correspondance graph
-        self._graph = CorrespondenceGraph(self._mol1, self._mol2, fuzziness)
+        self._graph = CorrespondenceGraph()
+        self._graph.build(self._mol1, self._mol2, fuzziness)
         
         # dummy vars
         self._clique = None
@@ -170,7 +173,7 @@ class MMP():
     def __search(self):
         
         # find the MCS
-        self._clique, self._mcs = self._graph.execute()
+        self._clique, self._mcs = self._graph.solve()
 
         # determine the % of largest molecule covered by MCS
         self._percentmcs = len(self._mcs) / max(self._mol1.GetNumAtoms(), self._mol2.GetNumAtoms())        
