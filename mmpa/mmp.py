@@ -5,11 +5,11 @@ import numpy as np
 
 from rdkit import Chem
 from func_timeout import func_timeout, FunctionTimedOut
-from networkx.algorithms.clique import find_cliques
+from networkx.algorithms.clique import enumerate_all_cliques, find_cliques, find_cliques_recursive, max_weight_clique
 
 class CorrespondenceGraph(networkx.Graph):
     '''
-    Build the correspondance matrix of putative atom pairings, from which to determine the maximal clique (comprising the MCS). 
+    Build the correspondence matrix of putative atom pairings, from which to determine the maximal clique (comprising the MCS). 
     '''
     
     def __init__(self):
@@ -17,20 +17,21 @@ class CorrespondenceGraph(networkx.Graph):
         # inherit from networkx.Graph
         super().__init__(self)
 
-    def build(self, mol1, mol2, fuzziness):
+    def build(self, mol1, mol2, strictness, correspondence):
         '''
-        Build the correspondance graph.
+        Build the correspondence graph.
         
-        Each atomic pairing is assigned a providional score, from 0 (identical) to 1 (fewer than [fuzziness] differences detected). 
-        This pairwise score is included in a tuple representing the each node, alongside the atomic indices.
+        Each atomic pairing is assigned a providional score, from 0 (most different) to 8000 (identical). 
+        This pairwise score is appended to the tuple representing each node, following the atomic indices.
         '''
         
-        # store fuzziness for scoring
-        self._fuzz = fuzziness
+        # store strictness for scoring
+        self._strict = strictness * 1000
+        self._corr = correspondence
         
         # calculate distance matrices
-        dmat1 = Chem.GetDistanceMatrix(mol1)
-        dmat2 = Chem.GetDistanceMatrix(mol2) 
+        self._dmat1 = Chem.GetDistanceMatrix(mol1)
+        self._dmat2 = Chem.GetDistanceMatrix(mol2)
         
         # extract propery in such a way error is not thrown on comparison
         def getCIPCode(atom):
@@ -41,44 +42,63 @@ class CorrespondenceGraph(networkx.Graph):
         def getPeripherality(atom, dmat):
             peripherality = dmat[atom.GetIdx()]
             return np.mean(peripherality / np.max(peripherality))            
-            
+                        
+        # build numpy matrix for atom/atom combos
+        self._atommaps = []
+
         # iterate over all potential atom-atom pairings
         for atom1 in mol1.GetAtoms():
             for atom2 in mol2.GetAtoms():
 
                 # set penalties - [penalty] strikes and you're out!
                 # TODO: move atomic properies to graph 
-                mismatches = 0
-                if atom1.GetAtomicNum() != atom2.GetAtomicNum(): mismatches += 1
-                if atom1.GetImplicitValence() != atom2.GetImplicitValence(): mismatches += 1
-                if atom1.GetExplicitValence() != atom2.GetExplicitValence(): mismatches += 1
-                if atom1.GetFormalCharge() != atom2.GetFormalCharge(): mismatches += 1
-                if atom1.GetIsAromatic() != atom2.GetIsAromatic(): mismatches += 1
-                if atom1.GetDegree() != atom2.GetDegree(): mismatches += 1
-                if atom1.IsInRing() != atom2.IsInRing(): mismatches += 1
-                if getCIPCode(atom1) != getCIPCode(atom2): mismatches += 1
+                score = 0
+                if atom1.GetAtomicNum() == atom2.GetAtomicNum(): score += 1000
+                if atom1.GetImplicitValence() == atom2.GetImplicitValence(): score += 1000
+                if atom1.GetExplicitValence() == atom2.GetExplicitValence(): score += 1000
+                if atom1.GetFormalCharge() == atom2.GetFormalCharge(): score += 1000
+                if atom1.GetIsAromatic() == atom2.GetIsAromatic(): score += 1000
+                if atom1.GetDegree() == atom2.GetDegree(): score += 1000
+                if atom1.IsInRing() == atom2.IsInRing(): score += 1000
+                if getCIPCode(atom1) == getCIPCode(atom2): score += 1000
 
                 # apply jitter in the event of a tie
-                peripherality1 = getPeripherality(atom1, dmat1)
-                peripherality2 = getPeripherality(atom2, dmat2)
-                mismatches += 0.001 * abs(peripherality1 - peripherality2)
+                peripherality1 = getPeripherality(atom1, self._dmat1)
+                peripherality2 = getPeripherality(atom2, self._dmat2)
+                score += 999 - int(np.floor(999 * abs(peripherality1 - peripherality2)))
                 
-                # set upper limit on score deductions to 1 and append to node
-                mismatches = min(1, mismatches/self._fuzz)              
-                mapping = (atom1.GetIdx(), atom2.GetIdx(), mismatches)
-                if mismatches < 1: self.add_node(mapping)  
-
-        # create correspondance graph edges
-        for map1 in self.nodes():
-            for map2 in self.nodes():
-
-                # test if criteria are met for correspondance
-                correspondance = dmat1[map1[0]][map2[0]] == dmat2[map1[1]][map2[1]]
-                if correspondance: self.add_edge(map1, map2)       
+                # accept node with greater than specified match level
+                if score >= self._strict: 
+                    newmap = (atom1.GetIdx(), atom2.GetIdx())
+                    self._atommaps.append(newmap)
+                    self.add_node(self._atommaps.index(newmap), weight=score)
                     
-    def solve(self, timeout=60):
+        # build numpy matrix for correspondance combos
+        self._corrmat = np.zeros((len(self.nodes), len(self.nodes)), dtype='int64')
+        
+        # create correspondence graph edges
+        for node1 in self.nodes():
+            map1 = self._atommaps[node1]
+            for node2 in self.nodes():
+                map2 = self._atommaps[node2]
+                                
+                # ensure any given atom is not mapped twice in a clique
+                if map1[0] == map2[0] or map1[1] == map2[1]: continue
+
+                # test if criteria are met for correspondence
+                correspondence = abs(self._dmat1[map1[0]][map2[0]] - self._dmat2[map1[1]][map2[1]])
+                score = int(np.floor(1000/((1+correspondence)**2)))
+
+                if correspondence < self._corr: 
+                    self.add_edge(node1, node2, weight=score)
+                    self._corrmat[node1][node2] = score
+
+    def solve(self, solver, timeout=60):
         '''
-        Execute the maximal clique search.
+        Enumerate cliques and rescore:
+            solver=find_cliques - analyse maximal cliques only (default)
+            solver=find_cliques_recursive - (recursively) analyse maximal cliques only
+            solver=enumerate_all_cliques - analyse all cliques (not recommended for performance reasons)
         
         Returns:
             bestclique - the best scoring clique (including partially matching atoms, and used to derive reaction mappings)
@@ -86,7 +106,7 @@ class CorrespondenceGraph(networkx.Graph):
         '''
                     
         # define function with no arguments (for use with timeout function)
-        def findCliquesNoArgs(): return list(find_cliques(self))
+        def findCliquesNoArgs(): return list(solver(self))
         
         # try finding cliques within [timeout] seconds
         try:
@@ -94,30 +114,85 @@ class CorrespondenceGraph(networkx.Graph):
         except FunctionTimedOut:
             logging.warning(json.dumps({"message": "failed to find cliques in {} seconds".format(timeout)}))
             return list(), list()
-            
+
         # score (largest cliques first)
         bestscore = -1E800
         cliques.sort(key=len, reverse=True)
-        for clique in cliques:   
+        for clique in cliques:
             
-            # initialize scores
-            score = len(clique)
-            mcs = list(clique)
-            if score <= bestscore: continue # score cannot be greater than clique size
-    
-            # iterate over the mappings identified from MCSS
-            for pair in clique:
-                score = score - pair[2] # lookup predefined score penalty
-                if pair[2] >= (1.0/self._fuzz): mcs.remove(pair) # score > threshold marks atom discrepancy, mcs will contain only identical pairings
-
+            # lookup scores from matrices
+            score = np.sum(self._corrmat[clique].T[clique])/2
+            score += sum([self.nodes[mapping]['weight'] for mapping in clique])
+            
             # store results if best so far
             if score > bestscore:
                 bestscore = score
-                bestmcs = mcs
                 bestclique = clique  
-                
+
+        # work out which atoms comprising the best clique neighbour atoms which remain unpaired
+        clique1, clique2 = zip(*[self._atommaps[x] for x in bestclique])
+        dmat1 = np.delete(self._dmat1, list(clique1), axis=1)
+        dmat2 = np.delete(self._dmat2, list(clique2), axis=1)
+        if dmat1.size != 0: idx1 = np.where(dmat1.min(axis=1) > 1)[0]
+        else: idx1 = clique1
+        if dmat2.size != 0: idx2 = np.where(dmat2.min(axis=1) > 1)[0]
+        else: idx2 = clique2
+            
+        # eliminate those nodes where the constituent atoms do not neighbour outsiders or have atomic differences
+        bestmcs = [x for x in bestclique if self._atommaps[x][0] in idx1 and self._atommaps[x][1] in idx2]
+        bestmcs = [x for x in bestmcs if self.nodes[x]['weight'] >= 8000] 
+        
+        # replace indices with actual mappings for downstream
+        bestmcs = [self._atommaps[x] for x in bestmcs]
+        bestclique = [self._atommaps[x] for x in bestclique]
+
         # return results
         return bestclique, bestmcs
+                            
+    def solve_weighted(self, timeout=60):
+        '''
+        For testing only, please do not use.
+        
+        Execute the maximum weight clique search.
+        
+        Returns:
+            clique - the best scoring clique (including partially matching atoms, and used to derive reaction mappings)
+            mcs - the subset of bestclique containing exact chemical matches only (to be discarded to produce the RECS)
+        '''
+                    
+        # define function with no arguments (for use with timeout function)
+        def findCliquesNoArgs(): return max_weight_clique(self)
+        
+        # try finding cliques within [timeout] seconds
+        try:
+            clique, maxweight = func_timeout(timeout, findCliquesNoArgs)
+        except FunctionTimedOut:
+            logging.warning(json.dumps({"message": "failed to find cliques in {} seconds".format(timeout)}))
+            return list(), list()
+
+        # lookup scores from matrices
+        score = np.sum(self._corrmat[clique].T[clique])/2
+        score += sum([self.nodes[mapping]['weight'] for mapping in clique])
+
+        # work out which atoms comprising the best clique neighbour atoms which remain unpaired
+        clique1, clique2 = zip(*[self._atommaps[x] for x in clique])
+        dmat1 = np.delete(self._dmat1, list(clique1), axis=1)
+        dmat2 = np.delete(self._dmat2, list(clique2), axis=1)
+        if dmat1.size != 0: idx1 = np.where(dmat1.min(axis=1) > 1)[0]
+        else: idx1 = clique1
+        if dmat2.size != 0: idx2 = np.where(dmat2.min(axis=1) > 1)[0]
+        else: idx2 = clique2
+            
+        # eliminate those nodes where the constituent atoms do not neighbour outsiders or have atomic differences
+        mcs = [x for x in clique if self._atommaps[x][0] in idx1 and self._atommaps[x][1] in idx2]
+        mcs = [x for x in mcs if self.nodes[x]['weight'] >= 8000] 
+        
+        # replace indices with actual mappings for downstream
+        mcs = [self._atommaps[x] for x in mcs]
+        clique = [self._atommaps[x] for x in clique]
+    
+        # return results
+        return clique, mcs
         
 class MMP():
 
@@ -143,16 +218,22 @@ class MMP():
         # return
         return mol
     
-    def __init__(self, smiles_x: str, smiles_y: str, fuzziness=4):
+    def __init__(self, smiles_x: str, smiles_y: str, strictness=4, correspondence=1):
         '''
         Initialise the matched molecular pair.
         
         smiles_x: First molecule to compare.
         smiles_y: Second molecule to compare.
-        fuzziness: Integer (1-8) to indicate how tolerant the algortitm should to be to atom-wise differences in the construction of the correspondance graph. 
-            1 (fastest) atoms chemically identical to be considered part of mcss. 
-            8 (slowest) purely topological comparison of structures. 
+        strictness: Integer (1-8) to indicate how tolerant the algortithm should to be to atom-wise chemical differences. 
+            1 (slowest) all atom types match.
+            8 (fastest) atoms chemically identical to be considered part of mcss.  
+        correspondence: Integer (1-8) to indicate how tolerant the algortithm should to be to topological differences. 
+            1 (fastest) standard MCS using exact correspondance matrix only.
+            4 (slowest) atoms are allowed to 'drift' up to [correspondance] bonds away from neighbouring counterparts.  
         '''
+        
+        if strictness-1 not in range(8): return
+        if correspondence-1 not in range(4): return
         
         # canonicalise smiles
         self._smiles1 = Chem.MolToSmiles(Chem.MolFromSmiles(smiles_x))
@@ -162,21 +243,13 @@ class MMP():
         self._mol1 = self.__molFromSmiles(self._smiles1)
         self._mol2 = self.__molFromSmiles(self._smiles2)
         
-        # intialise correspondance graph
+        # intialise correspondence graph
         self._graph = CorrespondenceGraph()
-        self._graph.build(self._mol1, self._mol2, fuzziness)
+        self._graph.build(self._mol1, self._mol2, strictness, correspondence)
         
         # dummy vars
         self._clique = None
         self._mcs = None
-        
-    def __search(self):
-        
-        # find the MCS
-        self._clique, self._mcs = self._graph.solve()
-
-        # determine the % of largest molecule covered by MCS
-        self._percentmcs = len(self._mcs) / max(self._mol1.GetNumAtoms(), self._mol2.GetNumAtoms())        
 
     def __setAtomMapNumbers(self):        
         '''
@@ -196,7 +269,7 @@ class MMP():
             # map second atom and set radius to 99 (atom part of MCS)
             atom2 = self._mol2.GetAtomWithIdx(pair[1])
             atom2.SetProp('molAtomMapNumber', '%d'%mapIdx)
-    
+
     def __setAtomRadii(self):
         '''
         Use the atomic radii to denote which atoms are part of the MCS. By elimination, those atoms with radii of 0 will form the RECS.
@@ -213,20 +286,32 @@ class MMP():
             atom2 = self._mol2.GetAtomWithIdx(pair[1])
             atom2.SetProp('molAtomRadius','99')
 
-    def execute(self, radii=4):
-                
+    def execute(self, radii=4, solver=find_cliques):
+        '''
+        solver = find_cliques, find_cliques_recursive, enumerate_all_cliques, max_weight_clique
+        '''
+
+        # find the MCS
+        if solver == max_weight_clique: self._clique, self._mcs = self._graph.solve_weighted()
+        else: self._clique, self._mcs = self._graph.solve(solver=solver)
+
+        # determine the % of largest molecule covered by MCS
+        self._percentmcs = len(self._mcs) / max(self._mol1.GetNumAtoms(), self._mol2.GetNumAtoms())        
+
         # search, mark up atom mappings and MCS/RECS split
-        self.__search()
         self.__setAtomMapNumbers()
         self.__setAtomRadii()
-        
+                
         # define function for elimination of MCS
         def eliminate(mol, radius):
+            
+            # environment fails if radius > max distance
+            radius = int(min(radius, np.max(Chem.GetDistanceMatrix(mol))))
         
             # tag atoms within 4 bonds of attachment
             toRemove = set(range(mol.GetNumAtoms()))
             for atom in mol.GetAtoms():
-                if atom.GetProp('molAtomRadius') ==  '0':
+                if atom.GetProp('molAtomRadius') == '0':
                     for idx in Chem.FindAtomEnvironmentOfRadiusN(mol, radius, atom.GetIdx()):
                         envBond = mol.GetBondWithIdx(idx)
                         toRemove.discard(envBond.GetBeginAtom().GetIdx())
