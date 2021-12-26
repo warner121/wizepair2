@@ -5,9 +5,9 @@ Created on 24 Nov 2012
 '''
 
 __all__ = []
-__version__ = 0.12
+__version__ = 0.20
 __date__ = '2012-11-19'
-__updated__ = '2021-03-08'
+__updated__ = '2021-12-26'
 
 import csv
 import sys
@@ -28,7 +28,7 @@ if __name__ == '__main__':
      
         program_version_string = '%%prog %s (%s)' % (program_version, program_build_date)
         program_longdesc = ''''''
-        program_license = "Copyright 2013 Daniel Warner                                            \
+        program_license = "Copyright 2012-2021 Daniel Warner                                            \
                     Licensed under the Apache License 2.0\nhttp://www.apache.org/licenses/LICENSE-2.0"    
 
         argv = sys.argv[1:]
@@ -75,7 +75,7 @@ if __name__ == '__main__':
         for line in reader:
             
             # prepare potential atom-atom mappings and create correspondence graph
-            mmp = MMP(line['Molecule_L'], line['Molecule_R'], fuzziness=5)
+            mmp = MMP(line['Molecule_L'], line['Molecule_R'], strictness=5, correspondence=1)
             mmpout = mmp.execute()
 
             for pair in mmpout:
