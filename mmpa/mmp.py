@@ -130,17 +130,17 @@ class CorrespondenceGraph(networkx.Graph):
                 bestclique = clique  
 
         # work out which atoms comprising the best clique neighbour atoms which remain unpaired
-        bestmcs = [x for x in bestclique if self.nodes[x]['weight'] >= 8000] 
-        mcs1, mcs2 = zip(*[self._atommaps[x] for x in bestmcs])
-        dmat1 = np.delete(self._dmat1, list(mcs1), axis=1)
-        dmat2 = np.delete(self._dmat2, list(mcs2), axis=1)
+        clique1, clique2 = zip(*[self._atommaps[x] for x in bestclique])
+        dmat1 = np.delete(self._dmat1, list(clique1), axis=1)
+        dmat2 = np.delete(self._dmat2, list(clique2), axis=1)
         if dmat1.size != 0: idx1 = np.where(dmat1.min(axis=1) > 1)[0]
-        else: idx1 = mcs1
+        else: idx1 = clique1
         if dmat2.size != 0: idx2 = np.where(dmat2.min(axis=1) > 1)[0]
-        else: idx2 = mcs2
+        else: idx2 = clique2
             
         # eliminate those nodes where the constituent atoms do not neighbour outsiders or have atomic differences
-        bestmcs = [x for x in bestmcs if self._atommaps[x][0] in idx1 and self._atommaps[x][1] in idx2]
+        bestmcs = [x for x in bestclique if self._atommaps[x][0] in idx1 and self._atommaps[x][1] in idx2]
+        bestmcs = [x for x in bestmcs if self.nodes[x]['weight'] >= 8000] 
         
         # replace indices with actual mappings for downstream
         bestmcs = [self._atommaps[x] for x in bestmcs]
@@ -175,17 +175,17 @@ class CorrespondenceGraph(networkx.Graph):
         score += sum([self.nodes[mapping]['weight'] for mapping in clique])
 
         # work out which atoms comprising the best clique neighbour atoms which remain unpaired
-        mcs = [x for x in clique if self.nodes[x]['weight'] >= 8000] 
-        mcs1, mcs2 = zip(*[self._atommaps[x] for x in mcs])
-        dmat1 = np.delete(self._dmat1, list(mcs1), axis=1)
-        dmat2 = np.delete(self._dmat2, list(mcs2), axis=1)
+        clique1, clique2 = zip(*[self._atommaps[x] for x in clique])
+        dmat1 = np.delete(self._dmat1, list(clique1), axis=1)
+        dmat2 = np.delete(self._dmat2, list(clique2), axis=1)
         if dmat1.size != 0: idx1 = np.where(dmat1.min(axis=1) > 1)[0]
-        else: idx1 = mcs1
+        else: idx1 = clique1
         if dmat2.size != 0: idx2 = np.where(dmat2.min(axis=1) > 1)[0]
-        else: idx2 = mcs2
+        else: idx2 = clique2
             
         # eliminate those nodes where the constituent atoms do not neighbour outsiders or have atomic differences
-        mcs = [x for x in mcs if self._atommaps[x][0] in idx1 and self._atommaps[x][1] in idx2]
+        mcs = [x for x in clique if self._atommaps[x][0] in idx1 and self._atommaps[x][1] in idx2]
+        mcs = [x for x in mcs if self.nodes[x]['weight'] >= 8000] 
         
         # replace indices with actual mappings for downstream
         mcs = [self._atommaps[x] for x in mcs]
@@ -312,7 +312,7 @@ class MMP():
             toRemove = set(range(mol.GetNumAtoms()))
             for atom in mol.GetAtoms():
                 if atom.GetProp('molAtomRadius') == '0':
-                    for idx in Chem.FindAtomEnvironmentOfRadiusN(mol, radius-1, atom.GetIdx()):
+                    for idx in Chem.FindAtomEnvironmentOfRadiusN(mol, radius, atom.GetIdx()):
                         envBond = mol.GetBondWithIdx(idx)
                         toRemove.discard(envBond.GetBeginAtom().GetIdx())
                         toRemove.discard(envBond.GetEndAtom().GetIdx())
@@ -355,13 +355,8 @@ class MMP():
             # verify derived reaction produces original 'product'
             productset = rxn.RunReactants((Chem.AddHs(Chem.MolFromSmiles(self._smiles1)),))
             productlist = list()
-            try:
-                for product in productset:
-                    productlist.append('.'.join([Chem.MolToSmiles(Chem.RemoveHs(productpart)) for productpart in product]))
-            except Chem.KekulizeException:
-                print(self._smiles1, self._smiles2, smirks)
-            except Chem.AtomValenceException:
-                print(self._smiles1, self._smiles2, smirks)
+            for product in productset:
+                productlist.append('.'.join([Chem.MolToSmiles(Chem.RemoveHs(productpart)) for productpart in product]))
             if self._smiles2 not in productlist:
                 logging.info(json.dumps({'radius': radius, "message": "second molecule not found amongst products enumerated from first"}))
                 responselist.append(response)
