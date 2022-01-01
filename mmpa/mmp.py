@@ -1,21 +1,24 @@
 import json
 import logging
-import networkx
+import networkx as nx
 import numpy as np
 
-from rdkit import Chem
+from rdkit import Chem, RDLogger
 from func_timeout import func_timeout, FunctionTimedOut
 from networkx.algorithms.clique import enumerate_all_cliques, find_cliques, find_cliques_recursive, max_weight_clique
 from multiprocessing import Pool
 
-class CorrespondenceGraph(networkx.Graph):
+# disable C++ logger for production
+RDLogger.DisableLog('rdApp.*')
+
+class CorrespondenceGraph(nx.Graph):
     '''
     Build the correspondence matrix of putative atom pairings, from which to determine the maximal clique (comprising the MCS). 
     '''
     
     def __init__(self):
 
-        # inherit from networkx.Graph
+        # inherit from nx.Graph
         super().__init__(self)
 
     def build(self, mol1, mol2, strictness, correspondence):
@@ -85,6 +88,9 @@ class CorrespondenceGraph(networkx.Graph):
             map1 = self._idxmaps[node1]
             for node2 in self.nodes():
                 map2 = self._idxmaps[node2]
+                
+                # only build 1/2 matrix
+                if node1 > node2: continue
                                 
                 # ensure any given atom is not mapped twice in a clique
                 if map1[0] == map2[0] or map1[1] == map2[1]: continue
@@ -107,7 +113,7 @@ class CorrespondenceGraph(networkx.Graph):
     def filter_mcs(self, clique):
         
         # remove any atom pairings with less than perfect score, excluding bonus i.e. (11*8)**2 = 7744
-        mcs = [x for x in clique if self.nodes[x]['weight'] >= 7744] 
+        mcs = [x for x in clique if self._nodeweights[x] >= 7744] 
         
         # replace integer node numbers with atomic index tuples
         mcs = [self._idxmaps[x] for x in mcs]
@@ -154,8 +160,11 @@ class CorrespondenceGraph(networkx.Graph):
             return list(), list()
         
         # set up process pool and score cliques
-        with Pool(6) as p:
-            scores = p.map(self.score_clique, cliques)
+        if len(cliques) > 1e5:
+            with Pool(6) as p:
+                scores = p.map(self.score_clique, cliques)
+        else:
+            scores = [self.score_clique(x) for x in cliques]
         scores = np.array(scores)
         bestscore = scores.max()
         bestclique = cliques[np.where(scores==bestscore)[0][0]]
@@ -188,8 +197,7 @@ class CorrespondenceGraph(networkx.Graph):
             return list(), list()
 
         # lookup scores from matrices (purely for comparison with return from max_weight_cliques)
-        score = np.sum(self._nodeweights[clique])
-        score += np.sum(self._edgeweights[clique].T[clique])/2
+        score = self.score_clique(clique)
 
         # remap to indices and remove atomic/drift based discrepancies from mcs
         clique, mcs = self.filter_mcs(clique)
@@ -307,6 +315,9 @@ class MMP():
                 
         # define function for elimination of MCS
         def eliminate(mol, radius):
+            
+            # environment fails if radius > max distance
+            radius = int(min(radius, np.max(Chem.GetDistanceMatrix(mol))-1))
         
             # tag atoms within 4 bonds of attachment
             toRemove = set(range(mol.GetNumAtoms()))
@@ -358,7 +369,10 @@ class MMP():
             productset = rxn.RunReactants((Chem.AddHs(Chem.MolFromSmiles(self._smiles1)),))
             productlist = list()
             for product in productset:
-                productlist.append('.'.join([Chem.MolToSmiles(Chem.RemoveHs(productpart)) for productpart in product]))
+                try:
+                    productlist.append('.'.join([Chem.MolToSmiles(Chem.RemoveHs(productpart)) for productpart in product]))
+                except Chem.AtomValenceException:
+                    logging.info(json.dumps({'radius': radius, "message": "atom valence exception raised on product enumeration"}))
             if self._smiles2 not in productlist:
                 logging.info(json.dumps({'radius': radius, "message": "second molecule not found amongst products enumerated from first"}))
                 responselist.append(response)
