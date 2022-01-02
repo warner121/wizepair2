@@ -4,8 +4,9 @@ import networkx as nx
 import numpy as np
 
 from rdkit import Chem, RDLogger
+from rdkit.Chem.rdChemReactions import ReactionFromSmarts
 from func_timeout import func_timeout, FunctionTimedOut
-from networkx.algorithms.clique import enumerate_all_cliques, find_cliques, find_cliques_recursive
+from networkx.algorithms.clique import enumerate_all_cliques, find_cliques, find_cliques_recursive, max_weight_clique
 from multiprocessing import Pool
 
 # disable C++ logger for production
@@ -241,8 +242,8 @@ class MMP():
             1 (slowest) all atom types match.
             8 (fastest) atoms chemically identical to be considered part of mcss.  
         correspondence: Integer (1-8) to indicate how tolerant the algortithm should to be to topological differences. 
-            1 (fastest) standard MCS using exact correspondance matrix only.
-            4 (slowest) atoms are allowed to 'drift' up to [correspondance] bonds away from neighbouring counterparts.  
+            1 (fastest) standard MCS using exact correspondence matrix only.
+            4 (slowest) atoms are allowed to 'drift' up to [correspondence] bonds away from neighbouring counterparts.  
         '''
         
         if strictness-1 not in range(8): return
@@ -361,7 +362,7 @@ class MMP():
             response['smirks'] = smirks
             
             # verify 1:1 reaction
-            rxn = Chem.rdChemReactions.ReactionFromSmarts(smirks)
+            rxn = ReactionFromSmarts(smirks)
             if rxn.GetNumReactantTemplates() != 1 or rxn.GetNumProductTemplates() != 1: 
                 logging.info(json.dumps({'radius': radius, "message": "no 1:1 reaction could be generated"}))
                 responselist.append(response)
