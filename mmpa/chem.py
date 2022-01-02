@@ -3,7 +3,8 @@ from rdkit.Chem import MolFromSmiles, SaltRemover, MolToSmiles
 def strip_salts(smiles):
     
     # parse smiles as rdkit molecule
-    mol = MolFromSmiles(smiles)
+    try: mol = MolFromSmiles(smiles)
+    except TypeError: return None
     
     # remove salts
     remover = SaltRemover.SaltRemover()

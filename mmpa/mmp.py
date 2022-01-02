@@ -5,7 +5,7 @@ import numpy as np
 
 from rdkit import Chem, RDLogger
 from func_timeout import func_timeout, FunctionTimedOut
-from networkx.algorithms.clique import enumerate_all_cliques, find_cliques, find_cliques_recursive, max_weight_clique
+from networkx.algorithms.clique import enumerate_all_cliques, find_cliques, find_cliques_recursive
 from multiprocessing import Pool
 
 # disable C++ logger for production
@@ -107,7 +107,7 @@ class CorrespondenceGraph(nx.Graph):
             
         # lookup scores from matrices
         score = np.sum(self._nodeweights[clique])
-        score += np.sum(self._edgeweights[clique].T[clique])/2   
+        score += np.sum(self._edgeweights[clique].T[clique])   
         return score
 
     def filter_mcs(self, clique):
@@ -161,10 +161,12 @@ class CorrespondenceGraph(nx.Graph):
         
         # set up process pool and score cliques
         if len(cliques) > 1e5:
-            with Pool(6) as p:
-                scores = p.map(self.score_clique, cliques)
-        else:
+            with Pool(6) as p: scores = p.map(self.score_clique, cliques)
+        elif len(cliques) > 0:
             scores = [self.score_clique(x) for x in cliques]
+        else:
+            logging.warning(json.dumps({"message": "no cliques found".format(timeout)}))
+            return list(), list()
         scores = np.array(scores)
         bestscore = scores.max()
         bestclique = cliques[np.where(scores==bestscore)[0][0]]
