@@ -119,7 +119,8 @@ class CorrespondenceGraph(nx.Graph):
         # replace integer node numbers with atomic index tuples
         mcs = [self._idxmaps[x] for x in mcs]
         clique = [self._idxmaps[x] for x in clique]
-        
+        if not len(mcs): return clique, mcs
+
         # split the tuples and homogenise the distance matrices
         idx1, idx2 = zip(*mcs)
         dmat1 = self._dmat1[list(idx1)].T[list(idx1)]
@@ -162,7 +163,7 @@ class CorrespondenceGraph(nx.Graph):
         
         # set up process pool and score cliques
         if len(cliques) > 1e5:
-            with Pool(6) as p: scores = p.map(self.score_clique, cliques)
+            with Pool() as p: scores = p.map(self.score_clique, cliques)
         elif len(cliques) > 0:
             scores = [self.score_clique(x) for x in cliques]
         else:
@@ -306,8 +307,11 @@ class MMP():
         '''
 
         # find the MCS
-        if solver == max_weight_clique: self._clique, self._mcs = self._graph.solve_weighted()
-        else: self._clique, self._mcs = self._graph.solve(solver=solver)
+        try:
+            if solver == max_weight_clique: self._clique, self._mcs = self._graph.solve_weighted()
+            else: self._clique, self._mcs = self._graph.solve(solver=solver)
+        except:
+            self._clique, self._mcs = [], []
 
         # determine the % of largest molecule covered by MCS
         self._percentmcs = len(self._mcs) / max(self._mol1.GetNumAtoms(), self._mol2.GetNumAtoms())        
@@ -374,8 +378,8 @@ class MMP():
             for product in productset:
                 try:
                     productlist.append('.'.join([Chem.MolToSmiles(Chem.RemoveHs(productpart)) for productpart in product]))
-                except Chem.AtomValenceException:
-                    logging.info(json.dumps({'radius': radius, "message": "atom valence exception raised on product enumeration"}))
+                except:
+                    logging.info(json.dumps({'radius': radius, "message": "valence/kekule exception raised on product enumeration"}))
             if self._smiles2 not in productlist:
                 logging.info(json.dumps({'radius': radius, "message": "second molecule not found amongst products enumerated from first"}))
                 responselist.append(response)
