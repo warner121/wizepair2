@@ -100,9 +100,10 @@ class CorrespondenceGraph(nx.Graph):
                 correspondence = abs(self._dmat1[map1[0]][map2[0]] - self._dmat2[map1[1]][map2[1]])
                 score = int(np.floor(1000/((1+correspondence)**2)))
 
-                if correspondence < self._corr: 
-                    self.add_edge(node1, node2, weight=score)
-                    self._edgeweights[node1][node2] = score
+                #if correspondence < self._corr:
+                if (2/3) <= self._dmat1[map1[0]][map2[0]] / self._dmat2[map1[1]][map2[1]] <= (3/2):
+                    self.add_edge(node1, node2, weight=0)
+                    self._edgeweights[node1][node2] = 0
 
     def score_clique(self, clique):
             
@@ -120,7 +121,7 @@ class CorrespondenceGraph(nx.Graph):
         mcs = [self._idxmaps[x] for x in mcs]
         clique = [self._idxmaps[x] for x in clique]
         if not len(mcs): return clique, mcs
-
+        
         # split the tuples and homogenise the distance matrices
         idx1, idx2 = zip(*mcs)
         dmat1 = self._dmat1[list(idx1)].T[list(idx1)]
@@ -208,7 +209,49 @@ class CorrespondenceGraph(nx.Graph):
         
         # return results
         return clique, mcs
+
+class Reactor():
+    
+    def __init__(self, smirks):        
+        '''
+        Instantiate MMP 'Reactor'.
         
+        smirks: SMIRKS encoded reaction.
+        '''
+        
+        self._rxn = Chem.rdChemReactions.ReactionFromSmarts(smirks)
+
+    def assert_one2one(self):
+        '''
+        Assert 1:1 relationship between reactants and products.
+        '''
+            
+        try: 
+            assert self._rxn.GetNumReactantTemplates() == 1
+            assert self._rxn.GetNumProductTemplates() == 1
+            return True
+        except AssertionError:
+            logging.info(json.dumps({"message": "no 1:1 reaction could be generated"}))
+            return False
+     
+    def generate_products(self, smiles):
+        '''
+        Return products as list of SMILES.
+        
+        smiles: SMILES to serve as seed or reactant.
+        '''
+            
+        reactant = Chem.AddHs(Chem.MolFromSmiles(smiles))
+        products = self._rxn.RunReactants((reactant,))
+        productset = set()
+        for product in products:
+            try:
+                productparts = [Chem.MolToSmiles(Chem.RemoveHs(productpart)) for productpart in product]
+                productset.add('.'.join(productparts))
+            except (Chem.AtomValenceException, Chem.KekulizeException):
+                logging.info(json.dumps({"message": "AtomValenceException/KekulizeException raised on product enumeration"}))
+        return list(productset)
+    
 class MMP():
 
     @staticmethod
@@ -301,17 +344,14 @@ class MMP():
             atom2 = self._mol2.GetAtomWithIdx(pair[1])
             atom2.SetProp('molAtomRadius','99')
 
-    def execute(self, radii=4, solver=find_cliques):
+    def execute(self, radii=4, solver=max_weight_clique):
         '''
         solver = find_cliques, find_cliques_recursive, enumerate_all_cliques, max_weight_clique
         '''
 
         # find the MCS
-        try:
-            if solver == max_weight_clique: self._clique, self._mcs = self._graph.solve_weighted()
-            else: self._clique, self._mcs = self._graph.solve(solver=solver)
-        except:
-            self._clique, self._mcs = [], []
+        if solver == max_weight_clique: self._clique, self._mcs = self._graph.solve_weighted()
+        else: self._clique, self._mcs = self._graph.solve(solver=solver)
 
         # determine the % of largest molecule covered by MCS
         self._percentmcs = len(self._mcs) / max(self._mol1.GetNumAtoms(), self._mol2.GetNumAtoms())        
@@ -366,22 +406,15 @@ class MMP():
             response['smirks'] = smirks
             
             # verify 1:1 reaction
-            rxn = ReactionFromSmarts(smirks)
-            if rxn.GetNumReactantTemplates() != 1 or rxn.GetNumProductTemplates() != 1: 
-                logging.info(json.dumps({'radius': radius, "message": "no 1:1 reaction could be generated"}))
+            reactor = Reactor(smirks)
+            if not reactor.assert_one2one():
                 responselist.append(response)
                 continue
 
             # verify derived reaction produces original 'product'
-            productset = rxn.RunReactants((Chem.AddHs(Chem.MolFromSmiles(self._smiles1)),))
-            productlist = list()
-            for product in productset:
-                try:
-                    productlist.append('.'.join([Chem.MolToSmiles(Chem.RemoveHs(productpart)) for productpart in product]))
-                except:
-                    logging.info(json.dumps({'radius': radius, "message": "valence/kekule exception raised on product enumeration"}))
+            productlist = reactor.generate_products(self._smiles1)
             if self._smiles2 not in productlist:
-                logging.info(json.dumps({'radius': radius, "message": "second molecule not found amongst products enumerated from first"}))
+                logging.info(json.dumps({"message": "second molecule not found amongst products enumerated from first"}))
                 responselist.append(response)
                 continue
 
