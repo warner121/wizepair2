@@ -248,8 +248,8 @@ class Reactor():
             try:
                 productparts = [Chem.MolToSmiles(Chem.RemoveHs(productpart)) for productpart in product]
                 productset.add('.'.join(productparts))
-            except (Chem.AtomValenceException, Chem.KekulizeException):
-                logging.info(json.dumps({"message": "AtomValenceException/KekulizeException raised on product enumeration"}))
+            except (Chem.AtomValenceException, Chem.AtomKekulizeException, Chem.KekulizeException):
+                logging.info(json.dumps({"message": "MolSanitizeException raised on product enumeration"}))
         return list(productset)
     
 class MMP():
