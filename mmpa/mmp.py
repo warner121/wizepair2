@@ -1,4 +1,5 @@
 import json
+import re
 import logging
 import networkx as nx
 import numpy as np
@@ -315,18 +316,25 @@ class MMP():
         '''
 
         # iterate over the mappings identified from MCSS
+        chargemismatch = list()
         for pair in self._clique:
             
             # increment the index to prevent atom mappings of 0
             mapIdx = self._clique.index(pair) + 1
             
-            # map first atom and set radius to 99 (atom part of MCS)
+            # get atoms and record list where charges mismatch (to convert to explicit +0 in smirks)
             atom1 = self._mol1.GetAtomWithIdx(pair[0])
+            atom2 = self._mol2.GetAtomWithIdx(pair[1])
+            if atom1.GetFormalCharge() != atom2.GetFormalCharge(): 
+                chargemismatch.append(mapIdx)
+            
+            # map first atom
             atom1.SetProp('molAtomMapNumber', '%d'%mapIdx)
             
-            # map second atom and set radius to 99 (atom part of MCS)
-            atom2 = self._mol2.GetAtomWithIdx(pair[1])
+            # map second atom
             atom2.SetProp('molAtomMapNumber', '%d'%mapIdx)
+            
+        return chargemismatch
 
     def __setAtomRadii(self):
         '''
@@ -357,7 +365,7 @@ class MMP():
         self._percentmcs = len(self._mcs) / max(self._mol1.GetNumAtoms(), self._mol2.GetNumAtoms())        
 
         # search, mark up atom mappings and MCS/RECS split
-        self.__setAtomMapNumbers()
+        chargemismatch = self.__setAtomMapNumbers()
         self.__setAtomRadii()
                 
         # define function for elimination of MCS
@@ -403,6 +411,10 @@ class MMP():
             frag1 = eliminate(self._mol1, radius)
             frag2 = eliminate(self._mol2, radius)   
             smirks = '{}>>{}'.format(Chem.MolToSmarts(Chem.AddHs(frag1)), Chem.MolToSmarts(Chem.AddHs(frag2)))
+            
+            # insert explicit +0 charges where required
+            for mapidx in chargemismatch: 
+                smirks = re.sub('(?<=[0-9]):{}]'.format(mapidx), '+0:{}]'.format(mapidx), smirks)
             response['smirks'] = smirks
             
             # verify 1:1 reaction

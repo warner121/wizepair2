@@ -24,8 +24,8 @@ class TestMMP(unittest.TestCase):
         response = MMP('c1([N+](=O)[O-])ccccc1', 'c1(C(=O)OC)ccccc1', strictness=5, correspondence=2).execute()
         df = pd.json_normalize(response)
         self.assertEqual(df.percentmcs.mean(), 0.7)
-        #self.assertEqual(df.valid.sum(), 4)
-        #self.assertEqual(df[df.valid].radius.min(), 1)
+        self.assertEqual(df.valid.sum(), 4)
+        self.assertEqual(df[df.valid].radius.min(), 1)
         
     def test_azetidine_to_piperazine(self):
         response = MMP('N1CCC1', 'N1CCNCC1', strictness=5, correspondence=2).execute()
@@ -44,7 +44,18 @@ class TestMMP(unittest.TestCase):
         self.assertEqual(df.percentmcs.mean(), 0.8)
         #self.assertEqual(df.valid.sum(), 4)
         #self.assertEqual(df[df.valid].radius.min(), 1)
-
+        
+    def test_pfizer_to_azpde4(self):
+        response = MMP(
+            'c1c(F)c(F)ccc1Oc2ncc(F)cc2C(=O)NC3CCC(NC(=O)c4cc(C)ccc4(O))CC3', 
+            'c1c(F)cc2C(=O)N(C3CCC(NC(=O)c5cc(C)ccc5(O))CC3)C(=O)N(c4cc(F)c(F)cc4)c2n1', 
+            strictness=5,
+            correspondence=2).execute()
+        df = pd.json_normalize(response)
+        self.assertEqual(df.percentmcs.mean(), 0.868421052631579)
+        self.assertEqual(df.valid.sum(), 4)
+        self.assertEqual(df[df.valid].radius.min(), 1)
+        
 #@unittest.skip("showing class skipping")
 class TestHDAC(unittest.TestCase):
     
