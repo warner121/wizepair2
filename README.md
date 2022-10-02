@@ -9,7 +9,7 @@ There are a number of other notebooks illustrating more complex workflows, inclu
 
 ### Installation
 
-This implementation makles extensive use of the open source cheminformatics toolkit [RDKit](https://rdkit.org/) and the graph toolkit [networkx](https://networkx.org/). Both packages can be installed, along with all other dependencies, by anaconda as below.
+This implementation makes extensive use of the open source cheminformatics toolkit [RDKit](https://rdkit.org/) and the graph toolkit [networkx](https://networkx.org/). Both packages can be installed, along with all other dependencies, by anaconda as below.
 
 1. Ensure your anaconda install is up to date.
 ```shell
@@ -63,7 +63,7 @@ SMILES strings must be provided in the request body as an array of dictionaries,
 ]'
 ```
 
-The request above should yield the following response. This contains 4 attempted SMIRKS encodings for each pair of molecules, with decreasing atomic environment radii as described in the original paper. The response also contains sanitised fragments describing the transformation, the percent common structure between the two molecules, and a boolean indicating if the SMIRKS was valid. Validitiy is established when application of the `smirks` to `smiles1` successfully yields `smiles2` (potentially amongst other products).
+The request above should yield the following response. This contains 4 attempted SMIRKS encodings for each pair of molecules, with decreasing atomic environment radii as described in the original paper. The response also contains sanitised fragments describing the transformation, the percent common structure between the two molecules, and a boolean indicating if the SMIRKS was valid. Validity is established when application of the `smirks` to `smiles1` successfully yields `smiles2` (potentially amongst other products).
 
 ```json
 [
