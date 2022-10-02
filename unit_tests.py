@@ -1,7 +1,7 @@
 import unittest
 import pandas as pd
 
-from mmpa.mmp import MMP
+from classes.mmp import MMP
 
 #@unittest.skip("showing class skipping")
 class TestMMP(unittest.TestCase):
