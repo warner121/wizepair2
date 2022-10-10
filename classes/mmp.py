@@ -3,6 +3,7 @@ import re
 import logging
 import networkx as nx
 import numpy as np
+import timeit
 
 from rdkit import Chem, RDLogger
 from rdkit.Chem.rdChemReactions import ReactionFromSmarts
@@ -23,18 +24,28 @@ class CorrespondenceGraph(nx.Graph):
         # inherit from nx.Graph
         super().__init__(self)
 
-    def build(self, mol1, mol2, strictness, correspondence):
+    def build(
+        self, 
+        mol1, 
+        mol2, 
+        strictness, 
+        correspondence,
+        sfunc=np.full(8, 10)):
         '''
         Build the correspondence graph.
         
         Each atomic pairing is assigned a providional score, from 0 (most different) to 8000 (identical). 
         This pairwise score is appended to the tuple representing each node, following the atomic indices.
         '''
+        # ensure scoring function suitable
+        assert len(sfunc) == 8
+        assert (sfunc > 1).all()
         
         # store strictness for scoring
         self._mol1 = mol1
         self._mol2 = mol2
-        self._strict = (strictness * 11) ** 2
+        self._strict = (sfunc.mean() * strictness) ** 2 # np.sort(sfunc)[:5].sum() ** 2
+        self._perfect = sfunc.sum() ** 2
         self._corr = correspondence
         
         # calculate distance matrices
@@ -59,20 +70,21 @@ class CorrespondenceGraph(nx.Graph):
             for atom2 in self._mol2.GetAtoms():
 
                 # score putative nodes based on atom:atom similarity (0-88 + up to 10 point centrality bonus)
-                score = 0
-                if atom1.GetAtomicNum() == atom2.GetAtomicNum(): score += 11
-                if atom1.GetImplicitValence() == atom2.GetImplicitValence(): score += 11
-                if atom1.GetExplicitValence() == atom2.GetExplicitValence(): score += 11
-                if atom1.GetFormalCharge() == atom2.GetFormalCharge(): score += 11
-                if atom1.GetIsAromatic() == atom2.GetIsAromatic(): score += 11
-                if atom1.GetDegree() == atom2.GetDegree(): score += 11
-                if atom1.IsInRing() == atom2.IsInRing(): score += 11
-                if getCIPCode(atom1) == getCIPCode(atom2): score += 11
+                score = np.zeros(8)
+                if atom1.GetAtomicNum() == atom2.GetAtomicNum(): score[0] = 1
+                if atom1.GetImplicitValence() == atom2.GetImplicitValence(): score[1] = 1
+                if atom1.GetExplicitValence() == atom2.GetExplicitValence(): score[2] = 1
+                if atom1.GetFormalCharge() == atom2.GetFormalCharge(): score[3] = 1
+                if atom1.GetIsAromatic() == atom2.GetIsAromatic(): score[4] = 1
+                if atom1.GetDegree() == atom2.GetDegree(): score[5] = 1
+                if atom1.IsInRing() == atom2.IsInRing(): score[6] = 1
+                if getCIPCode(atom1) == getCIPCode(atom2): score[7] = 1
+                score = (score * sfunc).sum()
 
                 # apply jitter in the event of a tie
                 peripherality1 = getPeripherality(atom1, self._dmat1)
                 peripherality2 = getPeripherality(atom2, self._dmat2)
-                score += 10 - (10 * abs(peripherality1 - peripherality2))
+                score += sfunc.min() * (1 - abs(peripherality1 - peripherality2)) * 0.999
                 score = int(np.floor(score**2))
                 
                 # accept node with greater than specified match level
@@ -98,14 +110,14 @@ class CorrespondenceGraph(nx.Graph):
                 if map1[0] == map2[0] or map1[1] == map2[1]: continue
 
                 # test if criteria are met for correspondence
-                correspondence = abs(self._dmat1[map1[0]][map2[0]] - self._dmat2[map1[1]][map2[1]])
-                score = int(np.floor(1000/((1+correspondence)**2)))
+                #correspondence = abs(self._dmat1[map1[0]][map2[0]] - self._dmat2[map1[1]][map2[1]])
+                #score = int(np.floor(1000/((1+correspondence)**2)))
 
-                #if correspondence < self._corr:
+                # check comparative distance between mapped atoms is within tolerance
                 if (2/3) <= self._dmat1[map1[0]][map2[0]] / self._dmat2[map1[1]][map2[1]] <= (3/2):
                     self.add_edge(node1, node2, weight=0)
                     self._edgeweights[node1][node2] = 0
-
+           
     def score_clique(self, clique):
             
         # lookup scores from matrices
@@ -116,7 +128,7 @@ class CorrespondenceGraph(nx.Graph):
     def filter_mcs(self, clique):
         
         # remove any atom pairings with less than perfect score, excluding bonus i.e. (11*8)**2 = 7744
-        mcs = [x for x in clique if self._nodeweights[x] >= 7744] 
+        mcs = [x for x in clique if self._nodeweights[x] >= self._perfect] 
         
         # replace integer node numbers with atomic index tuples
         mcs = [self._idxmaps[x] for x in mcs]
@@ -358,8 +370,10 @@ class MMP():
         '''
 
         # find the MCS
+        self._solversecs = timeit.default_timer()
         if solver == max_weight_clique: self._clique, self._mcs = self._graph.solve_weighted()
         else: self._clique, self._mcs = self._graph.solve(solver=solver)
+        self._solversecs = timeit.default_timer() - self._solversecs
 
         # determine the % of largest molecule covered by MCS
         self._percentmcs = len(self._mcs) / max(self._mol1.GetNumAtoms(), self._mol2.GetNumAtoms())        
@@ -405,7 +419,8 @@ class MMP():
                         'smiles2': self._smiles2,
                         'percentmcs': self._percentmcs,
                         'radius': radius,
-                        'valid': False}
+                        'valid': False,
+                        'solversecs': self._solversecs}
             
             # Define reaction as SMIRKS while mappings still present
             frag1 = eliminate(self._mol1, radius)
