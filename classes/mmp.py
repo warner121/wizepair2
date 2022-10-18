@@ -45,7 +45,6 @@ class CorrespondenceGraph(nx.Graph):
         self._mol1 = mol1
         self._mol2 = mol2
         self._strict = (sfunc.mean() * strictness) ** 2 # np.sort(sfunc)[:5].sum() ** 2
-        self._perfect = sfunc.sum() ** 2
         self._corr = correspondence
         
         # calculate distance matrices
@@ -94,8 +93,8 @@ class CorrespondenceGraph(nx.Graph):
                     self.add_node(self._idxmaps.index(newmap), weight=score)
                     
         # build numpy matrices for weights
-        self._nodeweights = np.array([self.nodes[x]['weight'] for x in self.nodes()], dtype='int64')
-        self._edgeweights = np.zeros((len(self.nodes), len(self.nodes)), dtype='int64')
+        self._nodeweights = np.array([self.nodes[x]['weight'] for x in self.nodes()], dtype='int64') / (sfunc.sum() ** 2)
+        #self._edgeweights = np.zeros((len(self.nodes), len(self.nodes)), dtype='int64')
         
         # create correspondence graph edges
         for node1 in self.nodes():
@@ -116,19 +115,31 @@ class CorrespondenceGraph(nx.Graph):
                 # check comparative distance between mapped atoms is within tolerance
                 if (2/3) <= self._dmat1[map1[0]][map2[0]] / self._dmat2[map1[1]][map2[1]] <= (3/2):
                     self.add_edge(node1, node2, weight=0)
-                    self._edgeweights[node1][node2] = 0
+                    #self._edgeweights[node1][node2] = 0
+                    
+        # get weighted degrees
+        self._embedding = [self._nodeweights[node] * val for (node, val) in self.degree()]
+        boundaries = np.sort(np.concatenate((np.logspace(3, 7, 15, base=np.e).astype(int), [np.inf, np.NINF]), axis=0))
+        self._embedding = np.histogram(self._embedding, bins=boundaries)[0].tolist()
+        
+        # predict solution time using simple linear model
+        self._predsolversecs = np.sum(self._embedding * np.array([
+            0.00136326, 0.00136326, 0.00188707, 0.00241089, 0.0029347 ,
+            0.00345852, 0.00398233, 0.00450614, 0.01288632, 0.01488049,
+            0.02397065, 0.02899514, 0.07183043, 0.41705952, 0.7622886 ,
+            0.7622886 ]))
            
     def score_clique(self, clique):
             
         # lookup scores from matrices
         score = np.sum(self._nodeweights[clique])
-        score += np.sum(self._edgeweights[clique].T[clique])   
+        #score += np.sum(self._edgeweights[clique].T[clique])   
         return score
 
     def filter_mcs(self, clique):
         
         # remove any atom pairings with less than perfect score, excluding bonus i.e. (11*8)**2 = 7744
-        mcs = [x for x in clique if self._nodeweights[x] >= self._perfect] 
+        mcs = [x for x in clique if self._nodeweights[x] >= 1] 
         
         # replace integer node numbers with atomic index tuples
         mcs = [self._idxmaps[x] for x in mcs]
@@ -367,7 +378,17 @@ class MMP():
     def execute(self, radii=4, solver=max_weight_clique):
         '''
         solver = find_cliques, find_cliques_recursive, enumerate_all_cliques, max_weight_clique
+        
+        Returns: list of dictionaries.
         '''
+        
+        # predict timeout
+        if self._graph._predsolversecs > 60: 
+            return [{
+                'embedding': self._graph._embedding,
+                'predsolversecs': self._graph._predsolversecs,
+                'error': 'timeout expected - skipping'
+            }]
 
         # find the MCS
         self._solversecs = timeit.default_timer()
@@ -377,7 +398,12 @@ class MMP():
 
         # determine the % of largest molecule covered by MCS
         self._percentmcs = len(self._mcs) / max(self._mol1.GetNumAtoms(), self._mol2.GetNumAtoms())        
-
+        if self._percentmcs == 0: 
+            return [{
+                'percentmcs': self._percentmcs,
+                'error': 'no common substructure - skipping'
+            }]
+        
         # search, mark up atom mappings and MCS/RECS split
         chargemismatch = self.__setAtomMapNumbers()
         self.__setAtomRadii()
@@ -406,7 +432,7 @@ class MMP():
             for atom in toRemove: frag.RemoveAtom(atom)
             frag = frag.GetMol()
             return frag
-      
+
         # loop from 4 down to 1 bond radius to find smallest valid transformation
         responselist = list()
         for radius in reversed(range(radii+1)):
@@ -420,7 +446,10 @@ class MMP():
                         'percentmcs': self._percentmcs,
                         'radius': radius,
                         'valid': False,
-                        'solversecs': self._solversecs}
+                        'solversecs': self._solversecs,
+                        'embedding': self._graph._embedding,
+                        'predsolversecs': self._graph._predsolversecs,
+                        'error': None}
             
             # Define reaction as SMIRKS while mappings still present
             frag1 = eliminate(self._mol1, radius)
@@ -435,13 +464,14 @@ class MMP():
             # verify 1:1 reaction
             reactor = Reactor(smirks)
             if not reactor.assert_one2one():
+                response['error'] = 'not one2one reaction - skipping'
                 responselist.append(response)
                 continue
 
             # verify derived reaction produces original 'product'
             productlist = reactor.generate_products(self._smiles1)
             if self._smiles2 not in productlist:
-                logging.info(json.dumps({"message": "second molecule not found amongst products enumerated from first"}))
+                response['error'] = 'second molecule not found amongst products enumerated from first - skipping'
                 responselist.append(response)
                 continue
 
