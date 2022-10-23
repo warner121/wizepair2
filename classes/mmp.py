@@ -6,6 +6,7 @@ import numpy as np
 import timeit
 
 from rdkit import Chem, RDLogger
+from rdkit.Chem import SaltRemover
 from rdkit.Chem.rdChemReactions import ReactionFromSmarts
 from func_timeout import func_timeout, FunctionTimedOut
 from networkx.algorithms.clique import enumerate_all_cliques, find_cliques, find_cliques_recursive, max_weight_clique
@@ -284,7 +285,11 @@ class MMP():
         # parse smiles
         try: mol = Chem.MolFromSmiles(smiles)
         except: return None
-            
+    
+        # remove salts
+        remover = SaltRemover.SaltRemover()
+        mol, salts = remover.StripMolWithDeleted(mol)
+        
         # add hydrogen where defining isomer
         isomerics = []
         for atom in mol.GetAtoms():
@@ -397,11 +402,18 @@ class MMP():
         self._solversecs = timeit.default_timer() - self._solversecs
 
         # determine the % of largest molecule covered by MCS
-        self._percentmcs = len(self._mcs) / max(self._mol1.GetNumAtoms(), self._mol2.GetNumAtoms())        
+        maxnumatoms = max(self._mol1.GetNumAtoms(), self._mol2.GetNumAtoms())
+        if not maxnumatoms: 
+            return [{
+                'valid': False,
+                'error': 'neither mol has any non-salt atoms'
+            }]  
+        self._percentmcs = len(self._mcs) / maxnumatoms 
         if self._percentmcs == 0: 
             return [{
+                'valid': False,
                 'percentmcs': self._percentmcs,
-                'error': 'no common substructure - skipping'
+                'error': 'no common substructure'
             }]
         
         # search, mark up atom mappings and MCS/RECS split
@@ -464,14 +476,14 @@ class MMP():
             # verify 1:1 reaction
             reactor = Reactor(smirks)
             if not reactor.assert_one2one():
-                response['error'] = 'not one2one reaction - skipping'
+                response['error'] = 'not one2one reaction'
                 responselist.append(response)
                 continue
 
             # verify derived reaction produces original 'product'
             productlist = reactor.generate_products(self._smiles1)
             if self._smiles2 not in productlist:
-                response['error'] = 'second molecule not found amongst products enumerated from first - skipping'
+                response['error'] = 'second molecule not found amongst products enumerated from first'
                 responselist.append(response)
                 continue
 
