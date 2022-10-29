@@ -5,7 +5,7 @@
         "runnables": [
           {
             "script": {
-              "text": "bash /mnt/share/test.sh"
+              "text": "bash /mnt/share/batch.sh"
             }
           }
         ],

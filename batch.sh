@@ -37,5 +37,5 @@ cd wizepair2
 pip3 install --root-user-action=ignore -r requirements.txt
 #python3 unit_tests.py
 
-python3 batch.sh $infile $outfile 
+python3 batch.py $infile $outfile 
 
