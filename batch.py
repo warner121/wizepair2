@@ -6,7 +6,7 @@ from classes.mmp import MMP
 def batch(): 
     infile = sys.argv[1]
     outfile = sys.argv[2]
-    df = pd.read_json(infile, compression='gzip', lines=True)[1:10]
+    df = pd.read_json(infile, compression='gzip', lines=True)
     s = df.wizepair2_uuid
     print(df.columns)
     df = df.apply(lambda x: 
