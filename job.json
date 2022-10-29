@@ -10,8 +10,8 @@
           }
         ],
         "computeResource": {
-          "cpuMilli": 2000,
-          "memoryMib": 2048
+          "cpuMilli": 1000,
+          "memoryMib": 1024
         },
         "volumes": [
           {
@@ -21,18 +21,18 @@
             "mountPath": "/mnt/share"
           }
         ],
-        "maxRetryCount": 0,
-        "maxRunDuration": "600s"
+        "maxRetryCount": 2,
+        "maxRunDuration": "3600s"
       },
-      "taskCount": 1,
-      "parallelism": 1
+      "taskCount": 1000,
+      "parallelism": 10
     }
   ],
   "allocationPolicy": {
     "instances": [
       {
         "policy": {
-          "machineType": "n2d-standard-2",
+          "machineType": "n2-standard-2",
           "provisioningModel": "SPOT"
         }
       }
