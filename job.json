@@ -1,0 +1,48 @@
+{
+  "taskGroups": [
+    {
+      "taskSpec": {
+        "runnables": [
+          {
+            "script": {
+              "text": "bash /mnt/share/test.sh"
+            }
+          }
+        ],
+        "computeResource": {
+          "cpuMilli": 2000,
+          "memoryMib": 2048
+        },
+        "volumes": [
+          {
+            "gcs": {
+              "remotePath": "wizepair2"
+            },
+            "mountPath": "/mnt/share"
+          }
+        ],
+        "maxRetryCount": 0,
+        "maxRunDuration": "600s"
+      },
+      "taskCount": 1,
+      "parallelism": 1
+    }
+  ],
+  "allocationPolicy": {
+    "instances": [
+      {
+        "policy": {
+          "machineType": "n2d-standard-2",
+          "provisioningModel": "SPOT"
+        }
+      }
+    ]
+  },
+  "labels": {
+    "department": "creative",
+    "env": "testing"
+  },
+  "logsPolicy": {
+    "destination": "CLOUD_LOGGING"
+  }
+}
