@@ -32,7 +32,7 @@
     "instances": [
       {
         "policy": {
-          "machineType": "n2-standard-2",
+          "machineType": "n2d-highcpu-2",
           "provisioningModel": "SPOT"
         }
       }
