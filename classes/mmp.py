@@ -423,19 +423,20 @@ class MMP():
         # define function for elimination of MCS
         def eliminate(mol, radius):
             
-            # environment fails if radius > max distance
-            radius = int(min(radius, np.max(Chem.GetDistanceMatrix(mol))-1))
-        
-            # tag atoms within 4 bonds of attachment
+            # preserve atoms within <radius> bonds of attachment
             toRemove = set(range(mol.GetNumAtoms()))
             for atom in mol.GetAtoms():
-                if atom.GetProp('molAtomRadius') == '0':
-                    for idx in Chem.FindAtomEnvironmentOfRadiusN(mol, radius, atom.GetIdx()):
-                        envBond = mol.GetBondWithIdx(idx)
-                        toRemove.discard(envBond.GetBeginAtom().GetIdx())
-                        toRemove.discard(envBond.GetEndAtom().GetIdx())
-                    if radius == 0:
-                        toRemove.discard(atom.GetIdx())
+                if atom.GetProp('molAtomRadius') != '0': continue
+                for x in reversed(range(radius+1)):
+                    env = list(Chem.FindAtomEnvironmentOfRadiusN(mol, x, atom.GetIdx()))
+                    if not len(env): continue
+                    break
+                for idx in env:
+                    envBond = mol.GetBondWithIdx(idx)
+                    toRemove.discard(envBond.GetBeginAtom().GetIdx())
+                    toRemove.discard(envBond.GetEndAtom().GetIdx())
+                if radius == 0:
+                    toRemove.discard(atom.GetIdx())
                         
             # remove environment from core
             toRemove = list(toRemove)

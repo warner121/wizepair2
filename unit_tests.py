@@ -31,7 +31,7 @@ class TestMMP(unittest.TestCase):
         response = MMP('N1CCC1', 'N1CCNCC1', strictness=5, correspondence=2).execute()
         df = pd.json_normalize(response)
         self.assertEqual(df.percentmcs.mean(), 0.5)
-        self.assertEqual(df.valid.sum(), 1)
+        self.assertEqual(df.valid.sum(), 4)
         self.assertEqual(df[df.valid].radius.min(), 1)
 
     def test_sildenafil_to_vardenafil(self):
