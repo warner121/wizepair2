@@ -139,7 +139,7 @@ class TestNR3C1(unittest.TestCase):
             correspondence=1).execute()
         df = pd.json_normalize(response)
         self.assertEqual(df.percentmcs.mean(), 0.6944444444444444)
-        self.assertEqual(df.valid.sum(), 2)
+        self.assertEqual(df.valid.sum(), 1)
         self.assertEqual(df[df.valid].radius.min(), 3)
         
     def test_NR3C1_example2(self):
@@ -152,6 +152,23 @@ class TestNR3C1(unittest.TestCase):
         self.assertEqual(df.percentmcs.mean(), 1/30)
         self.assertEqual(df.valid.sum(), 4)
         self.assertEqual(df[df.valid].radius.min(), 1)
-            
+        
+#@unittest.skip("showing class skipping")
+class TestCanonicalization(unittest.TestCase):
+    
+    def test_canonicalization(self):
+        mmp1 = MMP('CC(=O)CCc1ccc2ccccc2c1', 'CC(=O)CCc1ccc2cc(Cl)ccc2c1', 
+                   strictness=5, correspondence=1).execute()
+        mmp2 = MMP('S=c1[nH]ccn1Cc1ccccc1Cl', 'S=c1[nH]ccn1Cc1cc(Cl)ccc1Cl', 
+                   strictness=5, correspondence=1).execute()
+        mmp3 = MMP('NC1=N[C@@H](CCc2ccccc2)CO1', 'NC1=N[C@@H](CCc2cccc(Cl)c2)CO1', 
+                   strictness=5, correspondence=1).execute()
+        df1 = pd.json_normalize(mmp1)
+        df2 = pd.json_normalize(mmp2)
+        df3 = pd.json_normalize(mmp3)
+        self.assertListEqual(df1[df1.radius<=2].smirks.tolist(), df2[df2.radius<=2].smirks.tolist())
+        self.assertListEqual(df2[df2.radius<=2].smirks.tolist(), df3[df3.radius<=2].smirks.tolist())
+        self.assertListEqual(df1[df1.radius<=2].smirks.tolist(), df3[df3.radius<=2].smirks.tolist())
+
 if __name__ == '__main__':
     unittest.main()

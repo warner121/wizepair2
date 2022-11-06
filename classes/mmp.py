@@ -5,6 +5,7 @@ import networkx as nx
 import numpy as np
 import timeit
 
+from hashlib import md5
 from rdkit import Chem, RDLogger
 from rdkit.Chem import SaltRemover
 from rdkit.Chem.rdChemReactions import ReactionFromSmarts
@@ -289,7 +290,7 @@ class MMP():
         # remove salts
         remover = SaltRemover.SaltRemover()
         mol, salts = remover.StripMolWithDeleted(mol)
-        
+            
         # add hydrogen where defining isomer
         isomerics = []
         for atom in mol.GetAtoms():
@@ -299,7 +300,7 @@ class MMP():
                       
         # clear mappings and initialise radii (assume all atoms are RECS)
         for atom in mol.GetAtoms(): 
-            atom.SetProp('molAtomRadius','0')
+            atom.SetIntProp('molAtomRadius',0)
             atom.ClearProp('molAtomMapNumber')
             
         # return
@@ -357,10 +358,10 @@ class MMP():
                 chargemismatch.append(mapIdx)
             
             # map first atom
-            atom1.SetProp('molAtomMapNumber', '%d'%mapIdx)
+            atom1.SetIntProp('molAtomMapNumber', mapIdx)
             
             # map second atom
-            atom2.SetProp('molAtomMapNumber', '%d'%mapIdx)
+            atom2.SetIntProp('molAtomMapNumber', mapIdx)
             
         return chargemismatch
 
@@ -374,17 +375,15 @@ class MMP():
             
             # map first atom and set radius to 99 (atom part of MCS)
             atom1 = self._mol1.GetAtomWithIdx(pair[0])
-            atom1.SetProp('molAtomRadius','99')
+            atom1.SetIntProp('molAtomRadius',99)
             
             # map second atom and set radius to 99 (atom part of MCS)
             atom2 = self._mol2.GetAtomWithIdx(pair[1])
-            atom2.SetProp('molAtomRadius','99')
+            atom2.SetIntProp('molAtomRadius',99)
 
     def execute(self, radii=4, solver=max_weight_clique):
         '''
         solver = find_cliques, find_cliques_recursive, enumerate_all_cliques, max_weight_clique
-        
-        Returns: list of dictionaries.
         '''
         
         # predict timeout
@@ -407,13 +406,13 @@ class MMP():
             return [{
                 'valid': False,
                 'error': 'neither mol has any non-salt atoms'
-            }]  
+            }]
         self._percentmcs = len(self._mcs) / maxnumatoms 
-        if self._percentmcs == 0: 
+        if not (0 < self._percentmcs < 1): 
             return [{
                 'valid': False,
                 'percentmcs': self._percentmcs,
-                'error': 'no common substructure'
+                'error': 'either none, or complete common substructure'
             }]
         
         # search, mark up atom mappings and MCS/RECS split
@@ -426,7 +425,7 @@ class MMP():
             # preserve atoms within <radius> bonds of attachment
             toRemove = set(range(mol.GetNumAtoms()))
             for atom in mol.GetAtoms():
-                if atom.GetProp('molAtomRadius') != '0': continue
+                if atom.GetIntProp('molAtomRadius') > 0: continue
                 for x in reversed(range(radius+1)):
                     env = list(Chem.FindAtomEnvironmentOfRadiusN(mol, x, atom.GetIdx()))
                     if not len(env): continue
@@ -445,6 +444,66 @@ class MMP():
             for atom in toRemove: frag.RemoveAtom(atom)
             frag = frag.GetMol()
             return frag
+        
+        def canonicalize(smirks, k=99):
+            '''
+            Function to canonicalize SMIRKS by brute force. Attemps k reorderings of the atom 
+            mappings to hopefully converge on a consistent (mapping placeholdered only) solution.
+            
+            smirks = (str) the SMIRKS to canonicalise
+            k = (int, optional) number of iterations before taking the best solution
+            '''
+
+            # set the best score to negative infinity and iterate k times
+            bestscore = float('-inf')
+            for i in range(k):
+
+                # split the SMIRKS into reactant and products and extract mappings
+                smarts1, smarts2 = smirks.split('>>')
+                randmaps1 = re.findall('(?<=:)[0-9]+(?=])', smarts1)
+                randmaps2 = re.findall('(?<=:)[0-9]+(?=])', smarts2)
+
+                # shuffle the mappings, reinsert into SMARTS and read to new molecules
+                np.random.shuffle(randmaps1)
+                for idx, swap in enumerate(randmaps1):
+                    smarts1 = re.sub(':{}]'.format(swap), ':X{}]'.format(idx+1), smarts1)
+                    smarts2 = re.sub(':{}]'.format(swap), ':X{}]'.format(idx+1), smarts2)
+                smarts1 = re.sub(':X', ':', smarts1)
+                smarts2 = re.sub(':X', ':', smarts2)
+                newmol1 = Chem.MolFromSmarts(smarts1)
+                newmol2 = Chem.MolFromSmarts(smarts2)
+
+                # call MolToSmiles to assign canonical atom ordering and renumber atoms accordingly
+                smiles1 = Chem.MolToSmiles(newmol1)
+                smiles2 = Chem.MolToSmiles(newmol2)
+                newmol1 = Chem.RenumberAtoms(newmol1, list(newmol1.GetPropsAsDict(True,True)["_smilesAtomOutputOrder"]))
+                newmol2 = Chem.RenumberAtoms(newmol2, list(newmol2.GetPropsAsDict(True,True)["_smilesAtomOutputOrder"]))
+
+                # export SMARTS according to canonical ordering from previus step
+                smarts1 = Chem.MolToSmarts(newmol1)
+                smarts2 = Chem.MolToSmarts(newmol2)
+                hashstr1 = re.sub('(?<=:)[0-9]+(?=])', 'X', smarts1)
+                hashstr2 = re.sub('(?<=:)[0-9]+(?=])', 'X', smarts2)
+                hashstr = md5('{}>>{}'.format(hashstr1, hashstr2).encode()).hexdigest()
+
+                # consistenly define one fragment from which to assign sequential mappings in final SMIRKS
+                if hashstr1 > hashstr2: lookup = re.findall('(?<=:)[0-9]+(?=])', smarts1)
+                else: lookup = re.findall('(?<=:)[0-9]+(?=])', smarts2)
+
+                # score and cache best solutions
+                thisscore = int(hashstr, 16)
+                if thisscore >= bestscore:
+                    bestscore = thisscore
+                    bestsmirks = '{}>>{}'.format(smarts1, smarts2)
+                    bestlookup = lookup
+
+            # finally replace mappings with sequential ordering accoring to dominant fragment
+            for idx, swap in enumerate(bestlookup):
+                bestsmirks = re.sub(':{}]'.format(swap), ':X{}]'.format(idx+1), bestsmirks)
+            bestsmirks = re.sub(':X', ':', bestsmirks)
+
+            # return canonicalized SMIRKS
+            return bestsmirks
 
         # loop from 4 down to 1 bond radius to find smallest valid transformation
         responselist = list()
@@ -467,11 +526,15 @@ class MMP():
             # Define reaction as SMIRKS while mappings still present
             frag1 = eliminate(self._mol1, radius)
             frag2 = eliminate(self._mol2, radius)   
-            smirks = '{}>>{}'.format(Chem.MolToSmarts(Chem.AddHs(frag1)), Chem.MolToSmarts(Chem.AddHs(frag2)))
+            smarts1 = Chem.MolToSmarts(Chem.AddHs(frag1))
+            smarts2 = Chem.MolToSmarts(Chem.AddHs(frag2))
             
             # insert explicit +0 charges where required
             for mapidx in chargemismatch: 
-                smirks = re.sub('(?<=[0-9]):{}]'.format(mapidx), '+0:{}]'.format(mapidx), smirks)
+                smarts1 = re.sub('(?<=[0-9]):{}]'.format(mapidx), '+0:{}]'.format(mapidx), smarts1)
+                smarts2 = re.sub('(?<=[0-9]):{}]'.format(mapidx), '+0:{}]'.format(mapidx), smarts2)
+            smirks = '{}>>{}'.format(smarts1, smarts2)
+            smirks = canonicalize(smirks)
             response['smirks'] = smirks
             
             # verify 1:1 reaction
@@ -493,7 +556,7 @@ class MMP():
             frag1 = Chem.MolToSmiles(frag1, allHsExplicit=True)
             for atom in frag2.GetAtoms(): atom.ClearProp('molAtomMapNumber')
             frag2 = Chem.MolToSmiles(frag2, allHsExplicit=True)
-
+            
             # return key response elements
             response['valid'] = True
             response['fragment1'] = frag1
