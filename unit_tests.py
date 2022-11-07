@@ -139,7 +139,7 @@ class TestNR3C1(unittest.TestCase):
             correspondence=1).execute()
         df = pd.json_normalize(response)
         self.assertEqual(df.percentmcs.mean(), 0.6944444444444444)
-        self.assertEqual(df.valid.sum(), 1)
+        self.assertEqual(df.valid.sum(), 2)
         self.assertEqual(df[df.valid].radius.min(), 3)
         
     def test_NR3C1_example2(self):
@@ -153,7 +153,7 @@ class TestNR3C1(unittest.TestCase):
         self.assertEqual(df.valid.sum(), 4)
         self.assertEqual(df[df.valid].radius.min(), 1)
         
-#@unittest.skip("showing class skipping")
+@unittest.skip("showing class skipping")
 class TestCanonicalization(unittest.TestCase):
     
     def test_canonicalization(self):

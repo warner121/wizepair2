@@ -534,7 +534,7 @@ class MMP():
                 smarts1 = re.sub('(?<=[0-9]):{}]'.format(mapidx), '+0:{}]'.format(mapidx), smarts1)
                 smarts2 = re.sub('(?<=[0-9]):{}]'.format(mapidx), '+0:{}]'.format(mapidx), smarts2)
             smirks = '{}>>{}'.format(smarts1, smarts2)
-            smirks = canonicalize(smirks)
+            #smirks = canonicalize(smirks)
             response['smirks'] = smirks
             
             # verify 1:1 reaction
