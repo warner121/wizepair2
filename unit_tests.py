@@ -12,6 +12,7 @@ class TestMMP(unittest.TestCase):
         self.assertEqual(df.percentmcs.mean(), 0.7142857142857143)
         self.assertEqual(df.valid.sum(), 4)
         self.assertEqual(df[df.valid].radius.min(), 1)
+        self.assertEqual(df[df.valid].biproducts.sum(), 1)
         
     def test_2_5_dimethylfuran_to_1_4_dimethylbenzene(self):
         response = MMP('Cc1oc(C)cc1', 'Cc1ccc(C)cc1', strictness=5, correspondence=2).execute()
@@ -19,6 +20,7 @@ class TestMMP(unittest.TestCase):
         self.assertEqual(df.percentmcs.mean(), 0.75)
         self.assertEqual(df.valid.sum(), 4)
         self.assertEqual(df[df.valid].radius.min(), 1)
+        self.assertEqual(df[df.valid].biproducts.sum(), 0)
         
     def test_nitro_to_ester(self):
         response = MMP('c1([N+](=O)[O-])ccccc1', 'c1(C(=O)OC)ccccc1', strictness=5, correspondence=2).execute()
@@ -26,6 +28,7 @@ class TestMMP(unittest.TestCase):
         self.assertEqual(df.percentmcs.mean(), 0.7)
         self.assertEqual(df.valid.sum(), 4)
         self.assertEqual(df[df.valid].radius.min(), 1)
+        self.assertEqual(df[df.valid].biproducts.sum(), 0)
         
     def test_azetidine_to_piperazine(self):
         response = MMP('N1CCC1', 'N1CCNCC1', strictness=5, correspondence=2).execute()
@@ -33,6 +36,7 @@ class TestMMP(unittest.TestCase):
         self.assertEqual(df.percentmcs.mean(), 0.5)
         self.assertEqual(df.valid.sum(), 4)
         self.assertEqual(df[df.valid].radius.min(), 1)
+        self.assertEqual(df[df.valid].biproducts.sum(), 0)
 
     def test_sildenafil_to_vardenafil(self):
         response = MMP(
@@ -44,6 +48,7 @@ class TestMMP(unittest.TestCase):
         self.assertEqual(df.percentmcs.mean(), 0.8)
         #self.assertEqual(df.valid.sum(), 4)
         #self.assertEqual(df[df.valid].radius.min(), 1)
+        #self.assertEqual(df[df.valid].biproducts.sum(), 0)
         
     def test_pfizer_to_azpde4(self):
         response = MMP(
@@ -55,6 +60,7 @@ class TestMMP(unittest.TestCase):
         self.assertEqual(df.percentmcs.mean(), 0.868421052631579)
         self.assertEqual(df.valid.sum(), 4)
         self.assertEqual(df[df.valid].radius.min(), 1)
+        self.assertEqual(df[df.valid].biproducts.sum(), 0)
         
 #@unittest.skip("showing class skipping")
 class TestHDAC(unittest.TestCase):
@@ -69,6 +75,7 @@ class TestHDAC(unittest.TestCase):
         self.assertEqual(df.percentmcs.mean(), 0.8125)
         self.assertEqual(df.valid.sum(), 2)
         self.assertEqual(df[df.valid].radius.min(), 3)
+        self.assertEqual(df[df.valid].biproducts.sum(), 0)
 
 #@unittest.skip("showing class skipping")
 class TestBeta2(unittest.TestCase):
@@ -83,6 +90,7 @@ class TestBeta2(unittest.TestCase):
         self.assertEqual(df.percentmcs.mean(), 0.9375)
         self.assertEqual(df.valid.sum(), 4)
         self.assertEqual(df[df.valid].radius.min(), 1)
+        self.assertEqual(df[df.valid].biproducts.sum(), 0)
     
     def test_beta2_example2(self):
         response = MMP(
@@ -94,6 +102,7 @@ class TestBeta2(unittest.TestCase):
         self.assertEqual(df.percentmcs.mean(), 0.6923076923076923)
         self.assertEqual(df.valid.sum(), 3)
         self.assertEqual(df[df.valid].radius.min(), 2)
+        self.assertEqual(df[df.valid].biproducts.sum(), 0)
         
     def test_beta2_example3(self):
         response = MMP(
@@ -105,6 +114,7 @@ class TestBeta2(unittest.TestCase):
         self.assertEqual(df.percentmcs.mean(), 0.9)
         self.assertEqual(df.valid.sum(), 4)
         self.assertEqual(df[df.valid].radius.min(), 1)    
+        self.assertEqual(df[df.valid].biproducts.sum(), 0)
         
     def test_beta2_example4(self):
         response = MMP(
@@ -116,6 +126,7 @@ class TestBeta2(unittest.TestCase):
         self.assertEqual(df.percentmcs.mean(), 0.7857142857142857)
         self.assertEqual(df.valid.sum(), 4)
         self.assertEqual(df[df.valid].radius.min(), 1)    
+        self.assertEqual(df[df.valid].biproducts.sum(), 0)
         
     def test_beta2_example5(self):
         response = MMP(
@@ -127,6 +138,7 @@ class TestBeta2(unittest.TestCase):
         self.assertEqual(df.percentmcs.mean(), 0.5789473684210527)
         self.assertEqual(df.valid.sum(), 4)
         self.assertEqual(df[df.valid].radius.min(), 1)
+        self.assertEqual(df[df.valid].biproducts.sum(), 0)
 
 #@unittest.skip("showing class skipping")
 class TestNR3C1(unittest.TestCase):
@@ -141,6 +153,7 @@ class TestNR3C1(unittest.TestCase):
         self.assertEqual(df.percentmcs.mean(), 0.6944444444444444)
         self.assertEqual(df.valid.sum(), 2)
         self.assertEqual(df[df.valid].radius.min(), 3)
+        self.assertEqual(df[df.valid].biproducts.sum(), 0)
         
     def test_NR3C1_example2(self):
         response = MMP(
@@ -152,8 +165,9 @@ class TestNR3C1(unittest.TestCase):
         self.assertEqual(df.percentmcs.mean(), 1/30)
         self.assertEqual(df.valid.sum(), 4)
         self.assertEqual(df[df.valid].radius.min(), 1)
+        self.assertEqual(df[df.valid].biproducts.sum(), 0)
         
-@unittest.skip("showing class skipping")
+#@unittest.skip("showing class skipping")
 class TestCanonicalization(unittest.TestCase):
     
     def test_canonicalization(self):

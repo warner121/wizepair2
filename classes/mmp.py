@@ -445,7 +445,7 @@ class MMP():
             frag = frag.GetMol()
             return frag
         
-        def canonicalize(smirks, k=99):
+        def canonicalize(smirks, reactant, product, k=99):
             '''
             Function to canonicalize SMIRKS by brute force. Attemps k reorderings of the atom 
             mappings to hopefully converge on a consistent (mapping placeholdered only) solution.
@@ -492,10 +492,21 @@ class MMP():
 
                 # score and cache best solutions
                 thisscore = int(hashstr, 16)
-                if thisscore >= bestscore:
+                if thisscore > bestscore:
+                    
+                    # verify smirks works
+                    reactor = Reactor('{}>>{}'.format(smarts1, smarts2))
+                    if not reactor.assert_one2one(): continue
+                    productlist = reactor.generate_products(reactant)
+                    if product not in productlist: continue
+            
+                    # update best
                     bestscore = thisscore
                     bestsmirks = '{}>>{}'.format(smarts1, smarts2)
                     bestlookup = lookup
+                    
+            # return if no improvement found
+            if bestscore == float('-inf'): return smirks, bestscore
 
             # finally replace mappings with sequential ordering accoring to dominant fragment
             for idx, swap in enumerate(bestlookup):
@@ -503,7 +514,7 @@ class MMP():
             bestsmirks = re.sub(':X', ':', bestsmirks)
 
             # return canonicalized SMIRKS
-            return bestsmirks
+            return bestsmirks, bestscore
 
         # loop from 4 down to 1 bond radius to find smallest valid transformation
         responselist = list()
@@ -534,8 +545,6 @@ class MMP():
                 smarts1 = re.sub('(?<=[0-9]):{}]'.format(mapidx), '+0:{}]'.format(mapidx), smarts1)
                 smarts2 = re.sub('(?<=[0-9]):{}]'.format(mapidx), '+0:{}]'.format(mapidx), smarts2)
             smirks = '{}>>{}'.format(smarts1, smarts2)
-            #smirks = canonicalize(smirks)
-            response['smirks'] = smirks
             
             # verify 1:1 reaction
             reactor = Reactor(smirks)
@@ -550,6 +559,12 @@ class MMP():
                 response['error'] = 'second molecule not found amongst products enumerated from first'
                 responselist.append(response)
                 continue
+                
+            # canonicalize smirks
+            smirks, canonical = canonicalize(smirks, self._smiles1, self._smiles2)
+            response['smirks'] = smirks
+            response['canonical'] = canonical
+            response['biproducts'] = len(productlist) - 1
 
             # remove mappings to yield clean fragments
             for atom in frag1.GetAtoms(): atom.ClearProp('molAtomMapNumber')

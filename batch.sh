@@ -25,8 +25,8 @@ wget -nv https://bootstrap.pypa.io/get-pip.py
 python3 get-pip.py
 
 dir=/mnt/share
-infile=$dir/input/mmp_requests-`printf %0.12d $BATCH_TASK_INDEX`.json.gz
-outfile=$dir/output/mmp_requests-`printf %0.12d $BATCH_TASK_INDEX`.json.gz
+infile=$dir/mmp_input/mmp_requests-`printf %0.12d $BATCH_TASK_INDEX`.json.gz
+outfile=$dir/mmp_output/mmp_requests-`printf %0.12d $BATCH_TASK_INDEX`.json.gz
 
 mkdir -p $dir/output
 

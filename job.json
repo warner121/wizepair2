@@ -16,7 +16,7 @@
         "volumes": [
           {
             "gcs": {
-              "remotePath": "wizepair2"
+              "remotePath": "wizepair2_batch"
             },
             "mountPath": "/mnt/share"
           }
@@ -24,8 +24,8 @@
         "maxRetryCount": 2,
         "maxRunDuration": "3600s"
       },
-      "taskCount": 1000,
-      "parallelism": 10
+      "taskCount": 4000,
+      "parallelism": 20
     }
   ],
   "allocationPolicy": {
