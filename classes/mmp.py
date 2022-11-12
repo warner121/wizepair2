@@ -496,9 +496,15 @@ class MMP():
 
             # remove mappings to yield clean fragments
             for atom in frag1.GetAtoms(): atom.ClearProp('molAtomMapNumber')
-            frag1 = Chem.MolToSmiles(frag1)
             for atom in frag2.GetAtoms(): atom.ClearProp('molAtomMapNumber')
-            frag2 = Chem.MolToSmiles(frag2)
+            junk1 = Chem.MolToSmiles(frag1)
+            junk2 = Chem.MolToSmiles(frag2)
+
+            # renumber according to mapping-free output order
+            frag1 = Chem.RenumberAtoms(frag1, frag1.GetPropsAsDict(True,True)["_smilesAtomOutputOrder"])
+            frag2 = Chem.RenumberAtoms(frag2, frag2.GetPropsAsDict(True,True)["_smilesAtomOutputOrder"])
+            frag1 = md5(Chem.MolToSmarts(frag1).encode()).hexdigest()
+            frag2 = md5(Chem.MolToSmarts(frag2).encode()).hexdigest()
             
             # return key response elements
             response['smirks'] = smirks
