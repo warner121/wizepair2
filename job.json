@@ -25,14 +25,14 @@
         "maxRunDuration": "3600s"
       },
       "taskCount": 4000,
-      "parallelism": 20
+      "parallelism": 16
     }
   ],
   "allocationPolicy": {
     "instances": [
       {
         "policy": {
-          "machineType": "n2d-highcpu-2",
+          "machineType": "n2d-highcpu-8",
           "provisioningModel": "SPOT"
         }
       }

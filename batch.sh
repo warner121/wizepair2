@@ -28,7 +28,7 @@ dir=/mnt/share
 infile=$dir/mmp_input/mmp_requests-`printf %0.12d $BATCH_TASK_INDEX`.json.gz
 outfile=$dir/mmp_output/mmp_requests-`printf %0.12d $BATCH_TASK_INDEX`.json.gz
 
-mkdir -p $dir/output
+mkdir -p $dir/mmp_output
 
 rm -rf wizepair2
 git clone https://github.com/warner121/wizepair2.git 
