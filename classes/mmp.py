@@ -31,7 +31,6 @@ class CorrespondenceGraph(nx.Graph):
         mol1, 
         mol2, 
         strictness, 
-        correspondence,
         sfunc=np.full(8, 10)):
         '''
         Build the correspondence graph.
@@ -47,7 +46,6 @@ class CorrespondenceGraph(nx.Graph):
         self._mol1 = mol1
         self._mol2 = mol2
         self._strict = (sfunc.mean() * strictness) ** 2 # np.sort(sfunc)[:5].sum() ** 2
-        self._corr = correspondence
         
         # calculate distance matrices
         self._dmat1 = Chem.GetDistanceMatrix(mol1)
@@ -138,7 +136,7 @@ class CorrespondenceGraph(nx.Graph):
         #score += np.sum(self._edgeweights[clique].T[clique])   
         return score
 
-    def filter_mcs(self, clique):
+    def filter_mcs(self, clique, clipper=2):
         
         # remove any atom pairings with less than perfect score, excluding bonus i.e. (11*8)**2 = 7744
         mcs = [x for x in clique if self._nodeweights[x] >= 1] 
@@ -154,7 +152,7 @@ class CorrespondenceGraph(nx.Graph):
         dmat2 = self._dmat2[list(idx2)].T[list(idx2)]       
         
         # take the difference in the reduced distance matries
-        dmatdiff = np.clip(dmat1, 0, self._corr) - np.clip(dmat2, 0, self._corr)
+        dmatdiff = np.clip(dmat1, 0, clipper) - np.clip(dmat2, 0, clipper)
         idx1 = set([idx1[x] for x in np.where(dmatdiff != 0)[0]])
         idx2 = set([idx2[x] for x in np.where(dmatdiff != 0)[1]])
 
@@ -165,46 +163,6 @@ class CorrespondenceGraph(nx.Graph):
         
         # return
         return clique, mcs
-    
-    def solve(self, solver, timeout=60):
-        '''
-        Enumerate cliques and rescore:
-            solver=find_cliques - analyse maximal cliques only (default)
-            solver=find_cliques_recursive - (recursively) analyse maximal cliques only
-            solver=enumerate_all_cliques - analyse all cliques (not recommended for performance reasons)
-        
-        Returns:
-            bestclique - the best scoring clique (including partially matching atoms, and used to derive reaction mappings)
-            bestmcs - the subset of bestclique containing exact chemical matches only (to be discarded to produce the RECS)
-        '''
-                    
-        # define function with no arguments (for use with timeout function)
-        def findCliquesNoArgs(): return list(solver(self))
-        
-        # try finding cliques within [timeout] seconds
-        try:
-            cliques = func_timeout(timeout, findCliquesNoArgs)
-        except FunctionTimedOut:
-            logging.warning(json.dumps({"message": "failed to find cliques in {} seconds".format(timeout)}))
-            return list(), list()
-        
-        # set up process pool and score cliques
-        if len(cliques) > 1e5:
-            with Pool() as p: scores = p.map(self.score_clique, cliques)
-        elif len(cliques) > 0:
-            scores = [self.score_clique(x) for x in cliques]
-        else:
-            logging.warning(json.dumps({"message": "no cliques found".format(timeout)}))
-            return list(), list()
-        scores = np.array(scores)
-        bestscore = scores.max()
-        bestclique = cliques[np.where(scores==bestscore)[0][0]]
-        
-        # remap to indices and remove atomic/drift based discrepancies from mcs
-        bestclique, bestmcs = self.filter_mcs(bestclique)
-
-        # return results
-        return bestclique, bestmcs
                             
     def solve_weighted(self, timeout=60):
         '''
@@ -306,7 +264,7 @@ class MMP():
         # return
         return mol
     
-    def __init__(self, smiles_x: str, smiles_y: str, strictness=4, correspondence=1):
+    def __init__(self, smiles_x: str, smiles_y: str, strictness=4):
         '''
         Initialise the matched molecular pair.
         
@@ -315,13 +273,9 @@ class MMP():
         strictness: Integer (1-8) to indicate how tolerant the algortithm should to be to atom-wise chemical differences. 
             1 (slowest) all atom types match.
             8 (fastest) atoms chemically identical to be considered part of mcss.  
-        correspondence: Integer (1-8) to indicate how tolerant the algortithm should to be to topological differences. 
-            1 (fastest) standard MCS using exact correspondence matrix only.
-            4 (slowest) atoms are allowed to 'drift' up to [correspondence] bonds away from neighbouring counterparts.  
         '''
         
         if strictness-1 not in range(8): return
-        if correspondence-1 not in range(4): return
         
         # canonicalise smiles
         self._smiles1 = Chem.MolToSmiles(Chem.MolFromSmiles(smiles_x))
@@ -333,7 +287,7 @@ class MMP():
         
         # intialise correspondence graph
         self._graph = CorrespondenceGraph()
-        self._graph.build(self._mol1, self._mol2, strictness, correspondence)
+        self._graph.build(self._mol1, self._mol2, strictness)
         
         # dummy vars
         self._clique = None
@@ -381,9 +335,9 @@ class MMP():
             atom2 = self._mol2.GetAtomWithIdx(pair[1])
             atom2.SetIntProp('molAtomRadius',99)
 
-    def execute(self, radii=4, solver=max_weight_clique):
+    def execute(self, radii=4):
         '''
-        solver = find_cliques, find_cliques_recursive, enumerate_all_cliques, max_weight_clique
+        solver = max_weight_clique
         '''
         
         # predict timeout
@@ -396,8 +350,7 @@ class MMP():
 
         # find the MCS
         self._solversecs = timeit.default_timer()
-        if solver == max_weight_clique: self._clique, self._mcs = self._graph.solve_weighted()
-        else: self._clique, self._mcs = self._graph.solve(solver=solver)
+        self._clique, self._mcs = self._graph.solve_weighted()
         self._solversecs = timeit.default_timer() - self._solversecs
 
         # determine the % of largest molecule covered by MCS
@@ -443,6 +396,7 @@ class MMP():
             frag = Chem.EditableMol(mol)
             for atom in toRemove: frag.RemoveAtom(atom)
             frag = frag.GetMol()
+            frag = Chem.AddHs(frag)
             return frag
         
         def get_canonicalized_smirks(frag1, frag2, chargemismatch):
@@ -459,8 +413,8 @@ class MMP():
                 except KeyError: return None
             
             # save backup in case this fails validation
-            smarts1 = Chem.MolToSmarts(Chem.AddHs(frag1))
-            smarts2 = Chem.MolToSmarts(Chem.AddHs(frag2))
+            smarts1 = Chem.MolToSmarts(frag1)
+            smarts2 = Chem.MolToSmarts(frag2)
             backup = '{}>>{}'.format(smarts1, smarts2)
 
             # extract index/mapping lookup of atom all (including None) mappings
@@ -484,8 +438,8 @@ class MMP():
             # renumber according to mapping-free output order
             frag1 = Chem.RenumberAtoms(frag1, frag1.GetPropsAsDict(True,True)["_smilesAtomOutputOrder"])
             frag2 = Chem.RenumberAtoms(frag2, frag2.GetPropsAsDict(True,True)["_smilesAtomOutputOrder"])
-            smarts1 = Chem.MolToSmarts(Chem.AddHs(frag1))
-            smarts2 = Chem.MolToSmarts(Chem.AddHs(frag2))
+            smarts1 = Chem.MolToSmarts(frag1)
+            smarts2 = Chem.MolToSmarts(frag2)
 
             # insert explicit +0 charges where required
             for mapidx in chargemismatch: 
@@ -542,9 +496,9 @@ class MMP():
 
             # remove mappings to yield clean fragments
             for atom in frag1.GetAtoms(): atom.ClearProp('molAtomMapNumber')
-            frag1 = Chem.MolToSmiles(frag1, allHsExplicit=True)
+            frag1 = Chem.MolToSmiles(frag1)
             for atom in frag2.GetAtoms(): atom.ClearProp('molAtomMapNumber')
-            frag2 = Chem.MolToSmiles(frag2, allHsExplicit=True)
+            frag2 = Chem.MolToSmiles(frag2)
             
             # return key response elements
             response['smirks'] = smirks

@@ -18,7 +18,7 @@ def mmp():
     df = pd.DataFrame(request.get_json())
 
     # perform mmpa
-    df = df.sample(frac=1).apply(lambda x: MMP(x.smiles1, x.smiles2, strictness, correspondence=2).execute(), axis=1)
+    df = df.sample(frac=1).apply(lambda x: MMP(x.smiles1, x.smiles2, strictness).execute(), axis=1)
 
     # format response and return
     return jsonify(df.tolist())
@@ -35,7 +35,7 @@ def bqremote():
     for call in calls:
         call = json.loads(call[0])
         try: 
-            mmp = json.dumps(MMP(call['smiles1'], call['smiles2'], call['strictness'], correspondence=2).execute())
+            mmp = json.dumps(MMP(call['smiles1'], call['smiles2'], call['strictness']).execute())
         except ValueError: 
             print(json.loads(call[0])) 
             mmp = '{}' 
