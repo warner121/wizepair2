@@ -450,7 +450,8 @@ class MMP():
             Returns tuple of (
                 smirks: str, 
                 valid: bool, 
-                error: str)
+                error: str,
+                biproducts: int)
             '''
             
             def getMolAtomMapNumber(atom):
@@ -514,8 +515,7 @@ class MMP():
                 productlist = reactor.generate_products(self._smiles1)
                 if self._smiles2 in productlist:
                     return test, True, None, len(productlist) - 1
-            if self._smiles2 not in productlist:
-                return backup, False, 'second molecule not found amongst products enumerated from first', len(productlist)            
+            return backup, False, 'second molecule not found amongst products enumerated from first', len(productlist)            
 
         # loop from 4 down to 1 bond radius to find smallest valid transformation
         responselist = list()
@@ -538,7 +538,7 @@ class MMP():
             # Define reaction as SMIRKS while mappings still present
             frag1 = eliminate(self._mol1, radius)
             frag2 = eliminate(self._mol2, radius)   
-            smirks, valid, biproducts, error = get_canonicalized_smirks(frag1, frag2, chargemismatch)
+            smirks, valid, error, biproducts = get_canonicalized_smirks(frag1, frag2, chargemismatch)
 
             # remove mappings to yield clean fragments
             for atom in frag1.GetAtoms(): atom.ClearProp('molAtomMapNumber')

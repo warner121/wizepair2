@@ -12,7 +12,7 @@ class TestMMP(unittest.TestCase):
         self.assertEqual(df.percentmcs.mean(), 0.7142857142857143)
         self.assertEqual(df.valid.sum(), 4)
         self.assertEqual(df[df.valid].radius.min(), 1)
-        self.assertEqual(df[df.valid].biproducts.sum(), 0)
+        self.assertEqual(df[df.valid].biproducts.sum(), 1)
         
     def test_2_5_dimethylfuran_to_1_4_dimethylbenzene(self):
         response = MMP('Cc1oc(C)cc1', 'Cc1ccc(C)cc1', strictness=5, correspondence=2).execute()
