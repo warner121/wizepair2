@@ -456,7 +456,9 @@ class MMP():
             smirks = '{}>>{}'.format(smarts1, smarts2)
             for idx, swap in enumerate(lookup):
                 smirks = re.sub(':{}]'.format(swap), ':X{}]'.format(idx+1), smirks)
+                backup = re.sub(':{}]'.format(swap), ':X{}]'.format(idx+1), backup)
             smirks = re.sub(':X', ':', smirks)
+            backup = re.sub(':X', ':', backup)
 
             # verify 1:1 reaction
             reactor = Reactor(smirks)
