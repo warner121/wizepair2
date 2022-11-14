@@ -440,7 +440,7 @@ class MMP():
                 frag1 = Chem.RenumberAtoms(frag1, frag1.GetPropsAsDict(True,True)["_smilesAtomOutputOrder"])
                 frag2 = Chem.RenumberAtoms(frag2, frag2.GetPropsAsDict(True,True)["_smilesAtomOutputOrder"])
             except KeyError:
-                logging.error('_smilesAtomOutputOrder missing while encoding SMIRKS: ({}, {})'.format(self._smiles1, self._smiles2))
+                logging.warning('_smilesAtomOutputOrder missing while encoding SMIRKS: ({}, {})'.format(self._smiles1, self._smiles2))
             smarts1 = Chem.MolToSmarts(frag1)
             smarts2 = Chem.MolToSmarts(frag2)
 
