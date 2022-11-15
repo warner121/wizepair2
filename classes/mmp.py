@@ -248,6 +248,13 @@ class MMP():
         # remove salts
         remover = SaltRemover.SaltRemover()
         mol, salts = remover.StripMolWithDeleted(mol)
+        
+        # retain largest fragment
+        largest = Chem.Mol()
+        for submol in Chem.GetMolFrags(mol, asMols=True): 
+            if submol.GetNumHeavyAtoms() <= largest.GetNumHeavyAtoms(): continue
+            largest = submol
+        mol = largest
             
         # add hydrogen where defining isomer
         isomerics = []
@@ -436,11 +443,8 @@ class MMP():
                 frag2.GetAtomWithIdx(mapping[0]).SetIntProp('molAtomMapNumber', int(mapping[1]))
 
             # renumber according to mapping-free output order
-            try:
-                frag1 = Chem.RenumberAtoms(frag1, frag1.GetPropsAsDict(True,True)["_smilesAtomOutputOrder"])
-                frag2 = Chem.RenumberAtoms(frag2, frag2.GetPropsAsDict(True,True)["_smilesAtomOutputOrder"])
-            except KeyError:
-                logging.warning('_smilesAtomOutputOrder missing while encoding SMIRKS: ({}, {})'.format(self._smiles1, self._smiles2))
+            frag1 = Chem.RenumberAtoms(frag1, frag1.GetPropsAsDict(True,True)["_smilesAtomOutputOrder"])
+            frag2 = Chem.RenumberAtoms(frag2, frag2.GetPropsAsDict(True,True)["_smilesAtomOutputOrder"])
             smarts1 = Chem.MolToSmarts(frag1)
             smarts2 = Chem.MolToSmarts(frag2)
 

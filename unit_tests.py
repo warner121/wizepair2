@@ -184,5 +184,11 @@ class TestCanonicalization(unittest.TestCase):
         self.assertListEqual(df2[df2.radius<=2].smirks.tolist(), df3[df3.radius<=2].smirks.tolist())
         self.assertListEqual(df1[df1.radius<=2].smirks.tolist(), df3[df3.radius<=2].smirks.tolist())
 
+    def test_unknown_salts(self):
+        mmp = MMP('C[n+]1cccc2[nH]c3ccccc3c21.O=S(=O)([O-])C(F)(F)F', 'C[n+]1cccc2[nH]c3ccccc3c21.[Cl-]', 
+                   strictness=5).execute()
+        df = pd.json_normalize(mmp)
+        self.assertEqual(df.percentmcs.mean(), 1)
+
 if __name__ == '__main__':
     unittest.main()
