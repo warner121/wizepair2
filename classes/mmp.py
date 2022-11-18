@@ -255,7 +255,7 @@ class MMP():
             if submol.GetNumHeavyAtoms() <= largest.GetNumHeavyAtoms(): continue
             largest = submol
         mol = largest
-            
+        
         # add hydrogen where defining isomer
         isomerics = []
         for atom in mol.GetAtoms():
@@ -306,25 +306,18 @@ class MMP():
         '''
 
         # iterate over the mappings identified from MCSS
-        chargemismatch = list()
         for pair in self._clique:
             
             # increment the index to prevent atom mappings of 0
             mapIdx = self._clique.index(pair) + 1
             
-            # get atoms and record list where charges mismatch (to convert to explicit +0 in smirks)
+            # map first atom and set radius to 99 (atom part of MCS)
             atom1 = self._mol1.GetAtomWithIdx(pair[0])
-            atom2 = self._mol2.GetAtomWithIdx(pair[1])
-            if atom1.GetFormalCharge() != atom2.GetFormalCharge(): 
-                chargemismatch.append(mapIdx)
-            
-            # map first atom
             atom1.SetIntProp('molAtomMapNumber', mapIdx)
             
-            # map second atom
+            # map second atom and set radius to 99 (atom part of MCS)
+            atom2 = self._mol2.GetAtomWithIdx(pair[1])
             atom2.SetIntProp('molAtomMapNumber', mapIdx)
-            
-        return chargemismatch
 
     def __setAtomRadii(self):
         '''
@@ -376,7 +369,7 @@ class MMP():
             }]
         
         # search, mark up atom mappings and MCS/RECS split
-        chargemismatch = self.__setAtomMapNumbers()
+        self.__setAtomMapNumbers()
         self.__setAtomRadii()
                 
         # define function for elimination of MCS
@@ -406,7 +399,7 @@ class MMP():
             frag = Chem.AddHs(frag)
             return frag
         
-        def get_canonicalized_smirks(frag1, frag2, chargemismatch):
+        def get_canonicalized_smirks(frag1, frag2):
             '''
             Returns tuple of (
                 smirks: str, 
@@ -447,25 +440,28 @@ class MMP():
             frag2 = Chem.RenumberAtoms(frag2, frag2.GetPropsAsDict(True,True)["_smilesAtomOutputOrder"])
             smarts1 = Chem.MolToSmarts(frag1)
             smarts2 = Chem.MolToSmarts(frag2)
-
-            # insert explicit +0 charges where required
-            for mapidx in chargemismatch: 
-                smarts1 = re.sub('(?<=[0-9]):{}]'.format(mapidx), '+0:{}]'.format(mapidx), smarts1)
-                smarts2 = re.sub('(?<=[0-9]):{}]'.format(mapidx), '+0:{}]'.format(mapidx), smarts2)
-            
+    
             # arbitrarily define dominant fragment and 
             hashstr1 = re.sub('(?<=:)[0-9]+(?=])', 'X', smarts1)
             hashstr2 = re.sub('(?<=:)[0-9]+(?=])', 'X', smarts2)
             if hashstr1 > hashstr2: lookup = re.findall('(?<=:)[0-9]+(?=])', smarts1)
-            else: lookup = re.findall('(?<=:)[0-9]+(?=])', smarts2)   
+            else: lookup = re.findall('(?<=:)[0-9]+(?=])', smarts2)
             
-            # finally replace with sequentially ordered mappings from 1
+            # replace with sequentially ordered mappings from 1
             smirks = '{}>>{}'.format(smarts1, smarts2)
             for idx, swap in enumerate(lookup):
                 smirks = re.sub(':{}]'.format(swap), ':X{}]'.format(idx+1), smirks)
                 backup = re.sub(':{}]'.format(swap), ':X{}]'.format(idx+1), backup)
             smirks = re.sub(':X', ':', smirks)
             backup = re.sub(':X', ':', backup)
+            
+            # finally add missing +0 charges where mismatched
+            chargemaps1 = set(re.findall('(?<=[+-]:)[0-9]+(?=])', smarts1))
+            chargemaps2 = set(re.findall('(?<=[+-]:)[0-9]+(?=])', smarts2))
+            for chargemap in chargemaps1.symmetric_difference(chargemaps2):
+                idx = lookup.index(chargemap)
+                smirks = re.sub('(?<=[0-9]):{}]'.format(idx+1), '+0:{}]'.format(idx+1), smirks)
+                backup = re.sub('(?<=[0-9]):{}]'.format(idx+1), '+0:{}]'.format(idx+1), backup)
 
             # verify 1:1 reaction
             reactor = Reactor(smirks)
@@ -501,7 +497,7 @@ class MMP():
             # Define reaction as SMIRKS while mappings still present
             frag1 = eliminate(self._mol1, radius)
             frag2 = eliminate(self._mol2, radius)   
-            smirks, valid, error, biproducts = get_canonicalized_smirks(frag1, frag2, chargemismatch)
+            smirks, valid, error, biproducts = get_canonicalized_smirks(frag1, frag2)
 
             # remove mappings to yield clean fragments
             for atom in frag1.GetAtoms(): atom.ClearProp('molAtomMapNumber')

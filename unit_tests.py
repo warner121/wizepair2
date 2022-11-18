@@ -170,6 +170,20 @@ class TestNR3C1(unittest.TestCase):
 #@unittest.skip("showing class skipping")
 class TestCanonicalization(unittest.TestCase):
     
+    def test_differing_charges(self):
+        mmp1 = MMP('C[C@]1(Cn2ccnn2)[C@H](C(=O)[O-])N2C(=O)C[C@H]2S1(=O)=O.[Na+]', 'CC1(C)[C@H](C(=O)O)N2C(=O)C[C@H]2S1(=O)=O', 
+                   strictness=5).execute()
+        mmp2 = MMP('O=C1C=CC[C@@H]2[C@H]3CCC[N+]4([O-])CCC[C@@H](CN12)[C@@H]34', 'O=C1C=CC[C@@H]2[C@H]3CCCN4CCC[C@@](O)(CN12)[C@@H]34', 
+                   strictness=5).execute()
+        mmp3 = MMP('CC1(C)[C@H](C(=O)[O-])N2C(=O)/C(=C/C(=O)[O-])[C@H]2S1(=O)=O.[Na+].[Na+]', 'C[C@]1(Cn2ccnn2)[C@H](C(=O)O)N2C(=O)C[C@H]2S1(=O)=O', 
+                   strictness=5).execute()
+        df1 = pd.json_normalize(mmp1)
+        df2 = pd.json_normalize(mmp2)
+        df3 = pd.json_normalize(mmp3)
+        self.assertEqual(df1.valid.sum(), 4)
+        self.assertEqual(df2.valid.sum(), 4)
+        self.assertEqual(df3.valid.sum(), 4)
+        
     def test_canonicalization(self):
         mmp1 = MMP('CC(=O)CCc1ccc2ccccc2c1', 'CC(=O)CCc1ccc2cc(Cl)ccc2c1', 
                    strictness=5).execute()
