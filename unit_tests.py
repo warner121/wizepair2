@@ -184,7 +184,7 @@ class TestCanonicalization(unittest.TestCase):
         self.assertEqual(df2.valid.sum(), 4)
         self.assertEqual(df3.valid.sum(), 4)
         
-    def test_canonicalization(self):
+    def test_canonicalization1(self):
         mmp1 = MMP('CC(=O)CCc1ccc2ccccc2c1', 'CC(=O)CCc1ccc2cc(Cl)ccc2c1', 
                    strictness=5).execute()
         mmp2 = MMP('S=c1[nH]ccn1Cc1ccccc1Cl', 'S=c1[nH]ccn1Cc1cc(Cl)ccc1Cl', 
@@ -197,6 +197,15 @@ class TestCanonicalization(unittest.TestCase):
         self.assertListEqual(df1[df1.radius<=2].smirks.tolist(), df2[df2.radius<=2].smirks.tolist())
         self.assertListEqual(df2[df2.radius<=2].smirks.tolist(), df3[df3.radius<=2].smirks.tolist())
         self.assertListEqual(df1[df1.radius<=2].smirks.tolist(), df3[df3.radius<=2].smirks.tolist())
+        
+    def test_canonicalization2(self):
+        mmp1 = MMP('C#CCN(C)CC(=C)c1ccccc1F.Cl', 'C#CCN(C)CC(=C)c1ccc(Cl)cc1.O=C(O)C(=O)O', 
+                   strictness=5).execute()
+        mmp2 = MMP('Fc1ccccc1-c1c[nH]nn1', 'Clc1ccc(-c2c[nH]nn2)cc1', 
+                   strictness=5).execute()
+        df1 = pd.json_normalize(mmp1)
+        df2 = pd.json_normalize(mmp2)
+        self.assertListEqual(df1[df1.radius==1].smirks.tolist(), df2[df2.radius==1].smirks.tolist())
 
     def test_unknown_salts(self):
         mmp = MMP('C[n+]1cccc2[nH]c3ccccc3c21.O=S(=O)([O-])C(F)(F)F', 'C[n+]1cccc2[nH]c3ccccc3c21.[Cl-]', 

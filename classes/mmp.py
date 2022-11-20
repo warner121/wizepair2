@@ -236,10 +236,93 @@ class Reactor():
                 logging.info(json.dumps({"message": "MolSanitizeException raised on product enumeration"}))
         return list(productset)
     
+class SMIRKSEncoder():
+    
+    def __init__(self):
+        
+        return None
+        
+    def encode(self, frag1, frag2, smiles1, smiles2):
+        '''
+        Returns tuple of (
+            smirks: str, 
+            valid: bool, 
+            error: str,
+            biproducts: int)
+        '''
+
+        def getMolAtomMapNumber(atom):
+            try: return atom.GetProp('molAtomMapNumber')
+            except KeyError: return None
+
+        # save backup in case this fails validation
+        smarts1 = Chem.MolToSmarts(frag1)
+        smarts2 = Chem.MolToSmarts(frag2)
+        backup = '{}>>{}'.format(smarts1, smarts2)
+
+        # extract index/mapping lookup of atom all (including None) mappings
+        mappings1 = list(enumerate([getMolAtomMapNumber(atom) for atom in frag1.GetAtoms()]))
+        mappings2 = list(enumerate([getMolAtomMapNumber(atom) for atom in frag2.GetAtoms()]))
+
+        # strip of mappings and call MolToSmiles to define _smilesAtomOutputOrder
+        for atom in frag1.GetAtoms(): atom.ClearProp('molAtomMapNumber')
+        for atom in frag2.GetAtoms(): atom.ClearProp('molAtomMapNumber')
+        junk1 = Chem.MolToSmiles(frag1)
+        junk2 = Chem.MolToSmiles(frag2)
+
+        # put the original mappings back
+        for mapping in mappings1:
+            if not mapping[1]: continue
+            frag1.GetAtomWithIdx(mapping[0]).SetIntProp('molAtomMapNumber', int(mapping[1]))
+        for mapping in mappings2:
+            if not mapping[1]: continue
+            frag2.GetAtomWithIdx(mapping[0]).SetIntProp('molAtomMapNumber', int(mapping[1]))
+
+        # renumber according to mapping-free output order
+        frag1 = Chem.RenumberAtoms(frag1, frag1.GetPropsAsDict(True,True)["_smilesAtomOutputOrder"])
+        frag2 = Chem.RenumberAtoms(frag2, frag2.GetPropsAsDict(True,True)["_smilesAtomOutputOrder"])
+        smarts1 = Chem.MolToSmarts(frag1)
+        smarts2 = Chem.MolToSmarts(frag2)
+
+        # arbitrarily define dominant fragment and 
+        hashstr1 = re.sub('(?<=:)[0-9]+(?=])', 'X', smarts1)
+        hashstr2 = re.sub('(?<=:)[0-9]+(?=])', 'X', smarts2)
+        if hashstr1 > hashstr2: lookup = re.findall('(?<=:)[0-9]+(?=])', smarts1)
+        else: lookup = re.findall('(?<=:)[0-9]+(?=])', smarts2)
+
+        # replace with sequentially ordered mappings from 1
+        smirks = '{}>>{}'.format(smarts1, smarts2)
+        for idx, swap in enumerate(lookup):
+            smirks = re.sub(':{}]'.format(swap), ':X{}]'.format(idx+1), smirks)
+            backup = re.sub(':{}]'.format(swap), ':X{}]'.format(idx+1), backup)
+        smirks = re.sub(':X', ':', smirks)
+        backup = re.sub(':X', ':', backup)
+
+        # finally add missing +0 charges where mismatched
+        chargemaps1 = set(re.findall('(?<=[+-]:)[0-9]+(?=])', smarts1))
+        chargemaps2 = set(re.findall('(?<=[+-]:)[0-9]+(?=])', smarts2))
+        for chargemap in chargemaps1.symmetric_difference(chargemaps2):
+            idx = lookup.index(chargemap)
+            smirks = re.sub('(?<=[0-9]):{}]'.format(idx+1), '+0:{}]'.format(idx+1), smirks)
+            backup = re.sub('(?<=[0-9]):{}]'.format(idx+1), '+0:{}]'.format(idx+1), backup)
+
+        # verify 1:1 reaction
+        reactor = Reactor(smirks)
+        if not reactor.assert_one2one():
+            return smirks, False, 'not one2one reaction', None
+
+        # verify derived reaction produces original 'product'
+        for test in [smirks, backup]:
+            reactor = Reactor(test)
+            productlist = reactor.generate_products(smiles1)
+            if smiles2 in productlist:
+                return test, True, None, len(productlist) - 1
+        return backup, False, 'second molecule not found amongst products enumerated from first', len(productlist)
+    
 class MMP():
 
     @staticmethod
-    def __molFromSmiles(smiles: str):
+    def __saltRemover(smiles: str):
         
         # parse smiles
         try: mol = Chem.MolFromSmiles(smiles)
@@ -256,6 +339,12 @@ class MMP():
             largest = submol
         mol = largest
         
+        # return
+        return mol
+    
+    @staticmethod
+    def __prepareMol(mol: Chem.Mol):
+
         # add hydrogen where defining isomer
         isomerics = []
         for atom in mol.GetAtoms():
@@ -265,7 +354,7 @@ class MMP():
                       
         # clear mappings and initialise radii (assume all atoms are RECS)
         for atom in mol.GetAtoms(): 
-            atom.SetIntProp('molAtomRadius',0)
+            atom.SetIntProp('molAtomRadius', 0)
             atom.ClearProp('molAtomMapNumber')
             
         # return
@@ -284,14 +373,18 @@ class MMP():
         
         if strictness-1 not in range(8): return
         
-        # canonicalise smiles
-        self._smiles1 = Chem.MolToSmiles(Chem.MolFromSmiles(smiles_x))
-        self._smiles2 = Chem.MolToSmiles(Chem.MolFromSmiles(smiles_y))
-         
         # initialise molecules for comparison
-        self._mol1 = self.__molFromSmiles(self._smiles1)
-        self._mol2 = self.__molFromSmiles(self._smiles2)
-        
+        self._mol1 = self.__saltRemover(smiles_x)
+        self._mol2 = self.__saltRemover(smiles_y)
+
+        # canonicalise salt-free smiles
+        self._smiles1 = Chem.MolToSmiles(self._mol1)
+        self._smiles2 = Chem.MolToSmiles(self._mol2)
+                 
+        # add chiral Hs etc. ahead of MCSS
+        self._mol1 = self.__prepareMol(self._mol1)
+        self._mol2 = self.__prepareMol(self._mol2)
+
         # intialise correspondence graph
         self._graph = CorrespondenceGraph()
         self._graph.build(self._mol1, self._mol2, strictness)
@@ -397,84 +490,7 @@ class MMP():
             for atom in toRemove: frag.RemoveAtom(atom)
             frag = frag.GetMol()
             frag = Chem.AddHs(frag)
-            return frag
-        
-        def get_canonicalized_smirks(frag1, frag2):
-            '''
-            Returns tuple of (
-                smirks: str, 
-                valid: bool, 
-                error: str,
-                biproducts: int)
-            '''
-            
-            def getMolAtomMapNumber(atom):
-                try: return atom.GetProp('molAtomMapNumber')
-                except KeyError: return None
-            
-            # save backup in case this fails validation
-            smarts1 = Chem.MolToSmarts(frag1)
-            smarts2 = Chem.MolToSmarts(frag2)
-            backup = '{}>>{}'.format(smarts1, smarts2)
-
-            # extract index/mapping lookup of atom all (including None) mappings
-            mappings1 = list(enumerate([getMolAtomMapNumber(atom) for atom in frag1.GetAtoms()]))
-            mappings2 = list(enumerate([getMolAtomMapNumber(atom) for atom in frag2.GetAtoms()]))
-
-            # strip of mappings and call MolToSmiles to define _smilesAtomOutputOrder
-            for atom in frag1.GetAtoms(): atom.ClearProp('molAtomMapNumber')
-            for atom in frag2.GetAtoms(): atom.ClearProp('molAtomMapNumber')
-            junk1 = Chem.MolToSmiles(frag1)
-            junk2 = Chem.MolToSmiles(frag2)
-
-            # put the original mappings back
-            for mapping in mappings1:
-                if not mapping[1]: continue
-                frag1.GetAtomWithIdx(mapping[0]).SetIntProp('molAtomMapNumber', int(mapping[1]))
-            for mapping in mappings2:
-                if not mapping[1]: continue
-                frag2.GetAtomWithIdx(mapping[0]).SetIntProp('molAtomMapNumber', int(mapping[1]))
-
-            # renumber according to mapping-free output order
-            frag1 = Chem.RenumberAtoms(frag1, frag1.GetPropsAsDict(True,True)["_smilesAtomOutputOrder"])
-            frag2 = Chem.RenumberAtoms(frag2, frag2.GetPropsAsDict(True,True)["_smilesAtomOutputOrder"])
-            smarts1 = Chem.MolToSmarts(frag1)
-            smarts2 = Chem.MolToSmarts(frag2)
-    
-            # arbitrarily define dominant fragment and 
-            hashstr1 = re.sub('(?<=:)[0-9]+(?=])', 'X', smarts1)
-            hashstr2 = re.sub('(?<=:)[0-9]+(?=])', 'X', smarts2)
-            if hashstr1 > hashstr2: lookup = re.findall('(?<=:)[0-9]+(?=])', smarts1)
-            else: lookup = re.findall('(?<=:)[0-9]+(?=])', smarts2)
-            
-            # replace with sequentially ordered mappings from 1
-            smirks = '{}>>{}'.format(smarts1, smarts2)
-            for idx, swap in enumerate(lookup):
-                smirks = re.sub(':{}]'.format(swap), ':X{}]'.format(idx+1), smirks)
-                backup = re.sub(':{}]'.format(swap), ':X{}]'.format(idx+1), backup)
-            smirks = re.sub(':X', ':', smirks)
-            backup = re.sub(':X', ':', backup)
-            
-            # finally add missing +0 charges where mismatched
-            chargemaps1 = set(re.findall('(?<=[+-]:)[0-9]+(?=])', smarts1))
-            chargemaps2 = set(re.findall('(?<=[+-]:)[0-9]+(?=])', smarts2))
-            for chargemap in chargemaps1.symmetric_difference(chargemaps2):
-                idx = lookup.index(chargemap)
-                smirks = re.sub('(?<=[0-9]):{}]'.format(idx+1), '+0:{}]'.format(idx+1), smirks)
-                backup = re.sub('(?<=[0-9]):{}]'.format(idx+1), '+0:{}]'.format(idx+1), backup)
-
-            # verify 1:1 reaction
-            reactor = Reactor(smirks)
-            if not reactor.assert_one2one():
-                return smirks, False, 'not one2one reaction', None
-   
-            # verify derived reaction produces original 'product'
-            for test in [smirks, backup]:
-                reactor = Reactor(test)
-                productlist = reactor.generate_products(self._smiles1)
-                if self._smiles2 in productlist:
-                    return test, True, None, len(productlist) - 1
-            return backup, False, 'second molecule not found amongst products enumerated from first', len(productlist)            
+            return frag        
 
         # loop from 4 down to 1 bond radius to find smallest valid transformation
         responselist = list()
@@ -497,7 +513,8 @@ class MMP():
             # Define reaction as SMIRKS while mappings still present
             frag1 = eliminate(self._mol1, radius)
             frag2 = eliminate(self._mol2, radius)   
-            smirks, valid, error, biproducts = get_canonicalized_smirks(frag1, frag2)
+            encoder = SMIRKSEncoder()
+            smirks, valid, error, biproducts = encoder.encode(frag1, frag2, self._smiles1, self._smiles2)
 
             # remove mappings to yield clean fragments
             for atom in frag1.GetAtoms(): atom.ClearProp('molAtomMapNumber')
