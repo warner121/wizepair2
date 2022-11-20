@@ -34,10 +34,7 @@ rm -rf wizepair2
 git clone https://github.com/warner121/wizepair2.git 
 cd wizepair2
 
-python3 -m venv env
-source env/bin/activate
 pip3 install --root-user-action=ignore -r requirements.txt
 #python3 unit_tests.py
 
 python3 batch.py $infile $outfile 
-deactivate
