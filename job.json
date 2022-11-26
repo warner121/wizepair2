@@ -24,7 +24,7 @@
         "maxRetryCount": 2,
         "maxRunDuration": "3600s"
       },
-      "taskCount": 4000,
+      "taskCount": 400,
       "parallelism": 8
     }
   ],

@@ -1,9 +1,9 @@
 #standardSQL
 create or replace table `wizepair2.cloudrun.mmp_requests` 
-partition by RANGE_BUCKET(rand_partition, GENERATE_ARRAY(1, 1000, 1)) as
+partition by RANGE_BUCKET(rand_partition, GENERATE_ARRAY(1, 4000, 1)) as
 select 
   *,
-  cast(ceiling(rand()*1000) as int64) as rand_partition
+  cast(ceiling(rand()*4000) as int64) as rand_partition
 from (
   select distinct
     wizepair2_uuid,

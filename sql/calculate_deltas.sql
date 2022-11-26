@@ -32,15 +32,16 @@ from (
     act.standard_relation as standard_relation_1,
     cast(act.pchembl_value as numeric) as pchembl_value_1,
     count(*) over (partition by act.assay_id) as count_activities_1,
+    count(*) over (partition by act.assay_id, act.molregno) as duplicate_activities_1,
     act.molregno as molregno_1,
     com.canonical_smiles as canonical_smiles_1,
     cast(cmp.heavy_atoms as int64) as heavy_atoms_1,
   date(
     coalesce(cast(d.year as int64), 1970), 
-    coalesce(cast(ceiling(percent_rank() over (
-      partition by d.journal, d.year order by SAFE_CAST(d.first_page as int64)) * 11) + 1 as int64), 1),
-    coalesce(cast(ceiling(percent_rank() over (
-      partition by d.journal, d.year order by SAFE_CAST(d.first_page as int64)) * 27) + 1 as int64), 1)) as publication_date_1
+    coalesce(cast(floor(percent_rank() over (
+      partition by d.journal, d.year order by SAFE_CAST(d.first_page as int64)) * 11) as int64) + 1, 1),
+    coalesce(mod(cast(floor(percent_rank() over (
+      partition by d.journal, d.year order by SAFE_CAST(d.first_page as int64)) * 308) as int64), 28) + 1, 1)) as publication_date_1
   FROM `patents-public-data.ebi_chembl.activities_29` act
   join `patents-public-data.ebi_chembl.compound_structures_29` com using (molregno)
   join `patents-public-data.ebi_chembl.compound_properties_29` cmp using (molregno)
@@ -54,16 +55,17 @@ join (
     cast(act.standard_value as numeric) as standard_value_2,
     act.standard_relation as standard_relation_2,
     cast(act.pchembl_value as numeric) as pchembl_value_2,
-    count(*) over (partition by act.assay_id) as count_activities_2,    
+    count(*) over (partition by act.assay_id) as count_activities_2,
+    count(*) over (partition by act.assay_id, act.molregno) as duplicate_activities_2, 
     act.molregno as molregno_2,
     com.canonical_smiles as canonical_smiles_2, 
     cast(cmp.heavy_atoms as int64) as heavy_atoms_2,
   date(
     coalesce(cast(d.year as int64), 1970), 
-    coalesce(cast(ceiling(percent_rank() over (
-      partition by d.journal, d.year order by SAFE_CAST(d.first_page as int64)) * 11) + 1 as int64), 1),
-    coalesce(cast(ceiling(percent_rank() over (
-      partition by d.journal, d.year order by SAFE_CAST(d.first_page as int64)) * 27) + 1 as int64), 1)) as publication_date_2
+    coalesce(cast(floor(percent_rank() over (
+      partition by d.journal, d.year order by SAFE_CAST(d.first_page as int64)) * 11) as int64) + 1, 1),
+    coalesce(mod(cast(floor(percent_rank() over (
+      partition by d.journal, d.year order by SAFE_CAST(d.first_page as int64)) * 308) as int64), 28) + 1, 1)) as publication_date_2
   FROM `patents-public-data.ebi_chembl.activities_29` act
   join `patents-public-data.ebi_chembl.compound_structures_29` com using (molregno)
   join `patents-public-data.ebi_chembl.compound_properties_29` cmp using (molregno)
@@ -77,4 +79,6 @@ where
   a1.heavy_atoms_1 between 2 and 20 and
   a2.heavy_atoms_2 between 2 and 20 and
   a1.standard_value_1 is not null and 
-  a2.standard_value_2 is not null
+  a2.standard_value_2 is not null and
+  a1.duplicate_activities_1 < 2 and
+  a2.duplicate_activities_2 < 2

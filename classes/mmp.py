@@ -118,8 +118,8 @@ class CorrespondenceGraph(nx.Graph):
                     #self._edgeweights[node1][node2] = 0
                     
         # get weighted degrees
-        self._embedding = [self._nodeweights[node] * val for (node, val) in self.degree()]
-        boundaries = np.sort(np.concatenate((np.logspace(3, 7, 15, base=np.e).astype(int), [np.inf, np.NINF]), axis=0))
+        self._embedding = [np.log(self._nodeweights[node] * val) for (node, val) in self.degree()]
+        boundaries = np.sort(np.concatenate((np.linspace(3, 7, 15), [np.inf, np.NINF]), axis=0))
         self._embedding = np.histogram(self._embedding, bins=boundaries)[0].tolist()
         
         # predict solution time using simple linear model
@@ -434,7 +434,7 @@ class MMP():
         '''
         
         # predict timeout
-        if self._graph._predsolversecs > 60: 
+        if self._graph._predsolversecs > np.inf: 
             return [{
                 'embedding': self._graph._embedding,
                 'predsolversecs': self._graph._predsolversecs,
