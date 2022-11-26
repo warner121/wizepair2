@@ -124,10 +124,9 @@ class CorrespondenceGraph(nx.Graph):
         
         # predict solution time using simple linear model
         self._predsolversecs = np.sum(self._embedding * np.array([
-            0.00136326, 0.00136326, 0.00188707, 0.00241089, 0.0029347 ,
-            0.00345852, 0.00398233, 0.00450614, 0.01288632, 0.01488049,
-            0.02397065, 0.02899514, 0.07183043, 0.41705952, 0.7622886 ,
-            0.7622886 ]))
+            0.001, 0.001, 0.001, 0.001, 0.001, 0.002, 0.002, 0.003,
+            0.011, 0.016, 0.030, 0.045, 0.040, 0.048, 0.048, 0.048
+        ]))
            
     def score_clique(self, clique):
             
@@ -434,7 +433,7 @@ class MMP():
         '''
         
         # predict timeout
-        if self._graph._predsolversecs > np.inf: 
+        if self._graph._predsolversecs > 60:
             return [{
                 'embedding': self._graph._embedding,
                 'predsolversecs': self._graph._predsolversecs,
