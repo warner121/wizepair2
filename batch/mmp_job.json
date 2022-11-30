@@ -1,0 +1,48 @@
+{
+  "taskGroups": [
+    {
+      "taskSpec": {
+        "runnables": [
+          {
+            "script": {
+              "text": "bash /mnt/share/mmp_batch.sh"
+            }
+          }
+        ],
+        "computeResource": {
+          "cpuMilli": 1000,
+          "memoryMib": 1024
+        },
+        "volumes": [
+          {
+            "gcs": {
+              "remotePath": "wizepair2_batch"
+            },
+            "mountPath": "/mnt/share"
+          }
+        ],
+        "maxRetryCount": 2,
+        "maxRunDuration": "3600s"
+      },
+      "taskCount": 4000,
+      "parallelism": 8
+    }
+  ],
+  "allocationPolicy": {
+    "instances": [
+      {
+        "policy": {
+          "machineType": "n2d-highcpu-2",
+          "provisioningModel": "SPOT"
+        }
+      }
+    ]
+  },
+  "labels": {
+    "department": "creative",
+    "env": "testing"
+  },
+  "logsPolicy": {
+    "destination": "CLOUD_LOGGING"
+  }
+}

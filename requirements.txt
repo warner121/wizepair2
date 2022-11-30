@@ -4,3 +4,4 @@ rdkit>=2022.03.5
 networkx>=2.6.3
 func_timeout
 gunicorn
+skelo

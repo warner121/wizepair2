@@ -5,7 +5,7 @@
         "runnables": [
           {
             "script": {
-              "text": "bash /mnt/share/batch.sh"
+              "text": "bash /mnt/share/elo_batch.sh"
             }
           }
         ],
@@ -24,7 +24,7 @@
         "maxRetryCount": 2,
         "maxRunDuration": "3600s"
       },
-      "taskCount": 4000,
+      "taskCount": 1,
       "parallelism": 8
     }
   ],

@@ -25,10 +25,10 @@ wget -nv https://bootstrap.pypa.io/get-pip.py
 python3 get-pip.py
 
 dir=/mnt/share
-infile=$dir/mmp_input/mmp_requests-`printf %0.12d $BATCH_TASK_INDEX`.json.gz
-outfile=$dir/mmp_output/mmp_requests-`printf %0.12d $BATCH_TASK_INDEX`.json.gz
+infile=$dir/elo_input/elo_requests-`printf %0.12d $BATCH_TASK_INDEX`.csv.gz
+outfile=$dir/elo_output/elo_requests-`printf %0.12d $BATCH_TASK_INDEX`.csv.gz
 
-mkdir -p $dir/mmp_output
+mkdir -p $dir/elo_output
 
 rm -rf wizepair2
 git clone https://github.com/warner121/wizepair2.git 
@@ -37,4 +37,4 @@ cd wizepair2
 pip3 install --root-user-action=ignore -r requirements.txt
 #python3 unit_tests.py
 
-python3 batch.py $infile $outfile 
+python3 batch/elo_batch.py $infile $outfile 
