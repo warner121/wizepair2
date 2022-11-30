@@ -1,3 +1,16 @@
+def install_and_import(package):
+    import importlib
+    try:
+        importlib.import_module(package)
+    except ImportError:
+        import pip
+        pip.main(['install', package])
+    finally:
+        globals()[package] = importlib.import_module(package)
+
+install_and_import('sklearn')
+print(sklearn.__version__)
+
 import sys
 import pandas as pd
 from skelo.model.elo import EloEstimator
