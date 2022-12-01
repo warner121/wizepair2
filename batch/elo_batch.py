@@ -1,6 +1,8 @@
 import sys
 import re
 import glob
+import logging
+import json
 import pandas as pd
 from skelo.model.elo import EloEstimator
 
@@ -30,7 +32,12 @@ def batch():
     outfile = sys.argv[2]
 
     # read elo input data
-    infiles = pd.Series(glob.glob(re.sub('[0-9]{12}', '*', infile))).sample(frac=1, replace=True)
+    logging.info(f'infile = {infile}, outfile = {outfile}')
+    logging.info(json.dumps(glob.glob(infile)))
+    infiles = re.sub('[0-9]{12}', '*', infile)
+    logging.info(f'infiles = {infiles}')
+    logging.info(json.dumps(glob.glob(infiles)))
+    infiles = pd.Series(glob.glob(infiles)).sample(frac=1, replace=True)
     df = pd.concat(infiles.apply(pd.read_csv, compression='gzip').tolist())
 
     # ensure data is in chronological order
