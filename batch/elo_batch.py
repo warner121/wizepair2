@@ -30,7 +30,7 @@ def batch():
     outfile = sys.argv[2]
 
     # read elo input data
-    infiles = pd.Series(glob.glob(re.sub('[0-9]{12}', '*', infile))).sample(frac=1)
+    infiles = pd.Series(glob.glob(re.sub('[0-9]{12}', '*', infile))).sample(frac=1, replace=True)
     df = pd.concat(infiles.apply(pd.read_csv, compression='gzip').tolist())
 
     # ensure data is in chronological order

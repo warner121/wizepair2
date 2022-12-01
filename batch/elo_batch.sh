@@ -38,3 +38,5 @@ pip3 install --root-user-action=ignore -r requirements.txt
 #python3 unit_tests.py
 
 python3 batch/elo_batch.py $infile $outfile 
+cd ..
+
