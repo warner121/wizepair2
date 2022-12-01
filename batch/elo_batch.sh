@@ -25,8 +25,8 @@ wget -nv https://bootstrap.pypa.io/get-pip.py
 python3 get-pip.py
 
 dir=/mnt/share
-infile=$dir/elo_input/elo_input-`printf %0.12d $BATCH_TASK_INDEX`.csv.gz
-outfile=$dir/elo_output/elo_input-`printf %0.12d $BATCH_TASK_INDEX`.csv.gz
+infile=$dir/elo_input/elo_input-`printf %0.12d $BATCH_TASK_INDEX`.csz.gz
+outfile=$dir/elo_output/elo_input-`printf %0.12d $BATCH_TASK_INDEX`.csz.gz
 
 mkdir -p $dir/elo_output
 

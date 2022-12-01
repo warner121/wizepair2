@@ -1,4 +1,6 @@
 import sys
+import re
+import glob
 import pandas as pd
 from skelo.model.elo import EloEstimator
 
@@ -28,7 +30,8 @@ def batch():
     outfile = sys.argv[2]
 
     # read elo input data
-    df = pd.read_csv(infile, compression='gzip')
+    infiles = pd.Series(glob.glob(re.sub('[0-9]{12}', '*', infile))).sample(frac=1)
+    df = pd.concat(infiles.apply(pd.read_csv, compression='gzip').tolist())
 
     # ensure data is in chronological order
     df.publication_date_greatest = pd.to_datetime(df.publication_date_greatest)
