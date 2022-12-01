@@ -32,11 +32,7 @@ def batch():
     outfile = sys.argv[2]
 
     # read elo input data
-    logging.info(f'infile = {infile}, outfile = {outfile}')
-    logging.info(json.dumps(glob.glob(infile)))
     infiles = re.sub('[0-9]{12}', '*', infile)
-    logging.info(f'infiles = {infiles}')
-    logging.info(json.dumps(glob.glob(infiles)))
     infiles = pd.Series(glob.glob(infiles)).sample(frac=1, replace=True)
     df = pd.concat(infiles.apply(pd.read_csv, compression='gzip').tolist())
 
@@ -52,7 +48,7 @@ def batch():
     df = df.groupby(['chessleague_uuid']).apply(elo, return_ratings=True)
     
     # write to out file
-    df[df.valid_to.isna()].to_csv(outfile, compression='gzip')
+    df[df.valid_to.isna()].to_csv(outfile, compression='gzip', index=False)
     return
 
 if __name__ == "__main__":
