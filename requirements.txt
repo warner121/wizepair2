@@ -4,5 +4,5 @@ rdkit>=2022.03.5
 networkx>=2.6.3
 func_timeout
 gunicorn
-scikit-learn
+sklearn==1.0.2
 skelo
