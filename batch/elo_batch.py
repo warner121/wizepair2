@@ -18,6 +18,8 @@ client = google.cloud.logging.Client()
 # at INFO level and higher
 client.setup_logging()
 
+client.logger("projects/wizepair2/logs/batch_task_logs")
+
 def elo(df, return_ratings=False):
     
     # create a table where winner / loser is defined
@@ -44,13 +46,13 @@ def batch():
     outfile = sys.argv[2]
 
     # read elo input data
-    logging.info(f'infile = {infile}, outfile = {outfile}')
-    logging.info(json.dumps(glob.glob(infile)))
+    logger.log_text(f'infile = {infile}, outfile = {outfile}')
+    logger.log_text(json.dumps(glob.glob(infile)))
     infiles = re.sub('[0-9]{12}', '*', infile)
-    logging.info(f'infiles = {infiles}')
-    logging.info(json.dumps(glob.glob(infiles)))
+    logger.log_text(f'infiles = {infiles}')
+    logger.log_text(json.dumps(glob.glob(infiles)))
     infiles = pd.Series(glob.glob(infiles)).sample(frac=1, replace=True)
-    logging.info(json.dumps(infiles.tolist()))
+    logger.log_text(json.dumps(infiles.tolist()))
     df = pd.concat(infiles.apply(pd.read_csv, compression='gzip').tolist())
 
     # ensure data is in chronological order
