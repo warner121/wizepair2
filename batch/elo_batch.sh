@@ -34,6 +34,7 @@ rm -rf wizepair2
 git clone https://github.com/warner121/wizepair2.git 
 cd wizepair2
 
+export SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL=True
 pip3 install --root-user-action=ignore -r requirements.txt
 #python3 unit_tests.py
 
