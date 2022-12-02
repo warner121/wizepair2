@@ -4,6 +4,5 @@ rdkit>=2022.03.5
 networkx>=2.6.3
 func_timeout
 gunicorn
-scikit-learn
-skelo
+skelo==0.1.5
 google-cloud-logging
