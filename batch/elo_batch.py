@@ -38,7 +38,7 @@ def batch():
     logging.info(f'infiles = {infiles}')
     logging.info(json.dumps(glob.glob(infiles)))
     infiles = pd.Series(glob.glob(infiles)).sample(frac=1, replace=True)
-    logging.info(json.dumps(glob.glob(infiles)))
+    logging.info(json.dumps(glob.glob(infiles.tolist())))
     df = pd.concat(infiles.apply(pd.read_csv, compression='gzip').tolist())
 
     # ensure data is in chronological order
