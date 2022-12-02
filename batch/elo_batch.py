@@ -6,6 +6,18 @@ import json
 import pandas as pd
 from skelo.model.elo import EloEstimator
 
+# Imports the Cloud Logging client library
+import google.cloud.logging
+
+# Instantiates a client
+client = google.cloud.logging.Client()
+
+# Retrieves a Cloud Logging handler based on the environment
+# you're running in and integrates the handler with the
+# Python logging module. By default this captures all logs
+# at INFO level and higher
+client.setup_logging()
+
 def elo(df, return_ratings=False):
     
     # create a table where winner / loser is defined
@@ -32,13 +44,13 @@ def batch():
     outfile = sys.argv[2]
 
     # read elo input data
-    print(f'infile = {infile}, outfile = {outfile}')
-    print(json.dumps(glob.glob(infile)))
+    logging.info(f'infile = {infile}, outfile = {outfile}')
+    logging.info(json.dumps(glob.glob(infile)))
     infiles = re.sub('[0-9]{12}', '*', infile)
-    print(f'infiles = {infiles}')
-    print(json.dumps(glob.glob(infiles)))
+    logging.info(f'infiles = {infiles}')
+    logging.info(json.dumps(glob.glob(infiles)))
     infiles = pd.Series(glob.glob(infiles)).sample(frac=1, replace=True)
-    print(json.dumps(infiles.tolist()))
+    logging.info(json.dumps(infiles.tolist()))
     df = pd.concat(infiles.apply(pd.read_csv, compression='gzip').tolist())
 
     # ensure data is in chronological order

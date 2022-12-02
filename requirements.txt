@@ -6,3 +6,4 @@ func_timeout
 gunicorn
 scikit-learn
 skelo
+google-cloud-logging
