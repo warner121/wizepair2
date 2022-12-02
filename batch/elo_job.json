@@ -10,8 +10,8 @@
           }
         ],
         "computeResource": {
-          "cpuMilli": 1000,
-          "memoryMib": 8192
+          "cpuMilli": 2000,
+          "memoryMib": 16384 
         },
         "volumes": [
           {
