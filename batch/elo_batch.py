@@ -32,13 +32,13 @@ def batch():
     outfile = sys.argv[2]
 
     # read elo input data
-    logging.info(f'infile = {infile}, outfile = {outfile}')
-    logging.info(json.dumps(glob.glob(infile)))
+    print(f'infile = {infile}, outfile = {outfile}')
+    print(json.dumps(glob.glob(infile)))
     infiles = re.sub('[0-9]{12}', '*', infile)
-    logging.info(f'infiles = {infiles}')
-    logging.info(json.dumps(glob.glob(infiles)))
+    print(f'infiles = {infiles}')
+    print(json.dumps(glob.glob(infiles)))
     infiles = pd.Series(glob.glob(infiles)).sample(frac=1, replace=True)
-    logging.info(json.dumps(glob.glob(infiles.tolist())))
+    print(json.dumps(infiles.tolist()))
     df = pd.concat(infiles.apply(pd.read_csv, compression='gzip').tolist())
 
     # ensure data is in chronological order
