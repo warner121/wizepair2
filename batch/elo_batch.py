@@ -18,7 +18,7 @@ client = google.cloud.logging.Client()
 # at INFO level and higher
 client.setup_logging()
 
-logger = client.logger("projects/wizepair2/logs/batch_task_logs")
+logger = client.logger("batch_task_logs")
 
 def elo(df, return_ratings=False):
     
