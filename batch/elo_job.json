@@ -10,8 +10,8 @@
           }
         ],
         "computeResource": {
-          "cpuMilli": 2000,
-          "memoryMib": 16384 
+          "cpuMilli": 1000,
+          "memoryMib": 8192
         },
         "volumes": [
           {
@@ -24,7 +24,7 @@
         "maxRetryCount": 2,
         "maxRunDuration": "3600s"
       },
-      "taskCount": 29,
+      "taskCount": 10,
       "parallelism": 8
     }
   ],
