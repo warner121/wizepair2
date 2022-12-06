@@ -67,7 +67,7 @@ def batch():
     df = df.groupby(['chessleague_uuid']).apply(elo, return_ratings=True)
     
     # write to out file
-    df[df.valid_to.isna()].to_csv(outfile, compression='gzip', index=False)
+    df[df.valid_to.isna()].to_csv(outfile, compression='gzip')
     return
 
 if __name__ == "__main__":
