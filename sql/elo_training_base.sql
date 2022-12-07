@@ -5,6 +5,7 @@ SELECT
   md.standard_type,
   md.standard_change,
   md.publication_date_greatest,
+  md.doc_id_greatest,
   mr.response.fragment1,
   mr.response.fragment2,
   mr.response.radius
