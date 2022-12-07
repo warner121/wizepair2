@@ -51,7 +51,7 @@ def batch():
     infiles = re.sub('[0-9]{12}', '*', infile)
     logger.log_text(f'infiles = {infiles}')
     logger.log_text(json.dumps(glob.glob(infiles)))
-    infiles = pd.Series(glob.glob(infiles)).sample(frac=1, replace=True)
+    infiles = pd.Series(glob.glob(infiles)).sample(frac=0.5, replace=True)
     logger.log_text(json.dumps(infiles.tolist()))
     df = pd.concat(infiles.apply(pd.read_csv, compression='gzip').tolist())
 
