@@ -65,9 +65,13 @@ def batch():
     
     # run elo scoring
     df = df.groupby(['chessleague_uuid']).apply(elo, return_ratings=True)
+    df.reset_index(inplace=True)
     
     # write to out file
-    df[df.valid_to.isna()].to_csv(outfile, compression='gzip')
+    df.sort_values('valid_from', inplace=True)
+    df.drop_duplicates(['chessleague_uuid', 'key'], keep='last', inplace=True)
+    #df[df.valid_to.isna()].to_csv(outfile, compression='gzip')
+    df.to_csv(outfile, compression='gzip', index=False)
     return
 
 if __name__ == "__main__":
