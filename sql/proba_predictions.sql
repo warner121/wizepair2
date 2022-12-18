@@ -29,14 +29,14 @@ select distinct
   ere2.rating_avg as rating2,
   ere3.rating_avg as rating3,
   ere4.rating_avg as rating4,
-  1.0 / (1 + pow(10, (ere1.rating_avg - ere2.rating_avg) / 400.0)) as proba1,
-  1.0 / (1 + pow(10, (ere3.rating_avg - ere4.rating_avg) / 400.0)) as proba2,
-  eta1.deltas_count,
-  eta1.deltas_avg,
-  eta1.wizepair2_count,
-  eta2.deltas_count,
-  eta2.deltas_avg,
-  eta2.wizepair2_count
+  1.0 / (1 + pow(10, (ere2.rating_avg - ere1.rating_avg) / 400.0)) as proba1,
+  1.0 / (1 + pow(10, (ere4.rating_avg - ere3.rating_avg) / 400.0)) as proba2,
+  eta1.deltas_count as deltas_count1,
+  eta1.deltas_avg as deltas_avg_1,
+  eta1.wizepair2_count as wizepair2_count1,
+  eta2.deltas_count as deltas_count2,
+  eta2.deltas_avg as deltas_avg_2,
+  eta2.wizepair2_count as wizepair2_count2
 from `cloudrun.mmp_responses` mr
 join elo_ratings_enhanced ere1 on 
   ere1.key = mr.response.fragment1 and
