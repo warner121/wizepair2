@@ -234,7 +234,33 @@ class Reactor():
             except (Chem.AtomValenceException, Chem.AtomKekulizeException, Chem.KekulizeException):
                 logging.info(json.dumps({"message": "MolSanitizeException raised on product enumeration"}))
         return list(productset)
+
+class Desalinator():
     
+    def __init__(self, smiles):
+
+        # parse smiles
+        try: mol = Chem.MolFromSmiles(smiles)
+        except: return None
+    
+        # remove salts
+        remover = SaltRemover.SaltRemover()
+        mol, salts = remover.StripMolWithDeleted(mol)
+        
+        # retain largest fragment
+        largest = Chem.Mol()
+        for submol in Chem.GetMolFrags(mol, asMols=True): 
+            if submol.GetNumHeavyAtoms() <= largest.GetNumHeavyAtoms(): continue
+            largest = submol
+        mol = largest
+        
+        # create mol attribute
+        self._smiles = Chem.MolToSmiles(mol)
+
+    def getSmiles(self):
+
+        return self._smiles
+
 class SMIRKSEncoder():
     
     def __init__(self):
@@ -319,27 +345,6 @@ class SMIRKSEncoder():
         return backup, False, 'second molecule not found amongst products enumerated from first', len(productlist)
     
 class MMP():
-
-    @staticmethod
-    def __saltRemover(smiles: str):
-        
-        # parse smiles
-        try: mol = Chem.MolFromSmiles(smiles)
-        except: return None
-    
-        # remove salts
-        remover = SaltRemover.SaltRemover()
-        mol, salts = remover.StripMolWithDeleted(mol)
-        
-        # retain largest fragment
-        largest = Chem.Mol()
-        for submol in Chem.GetMolFrags(mol, asMols=True): 
-            if submol.GetNumHeavyAtoms() <= largest.GetNumHeavyAtoms(): continue
-            largest = submol
-        mol = largest
-        
-        # return
-        return mol
     
     @staticmethod
     def __prepareMol(mol: Chem.Mol):
@@ -372,13 +377,13 @@ class MMP():
         
         if strictness-1 not in range(8): return
         
-        # initialise molecules for comparison
-        self._mol1 = self.__saltRemover(smiles_x)
-        self._mol2 = self.__saltRemover(smiles_y)
+        # remove salts from molecules
+        self._smiles1 = Desalinator(smiles_x).getSmiles()
+        self._smiles2 = Desalinator(smiles_y).getSmiles()
 
-        # canonicalise salt-free smiles
-        self._smiles1 = Chem.MolToSmiles(self._mol1)
-        self._smiles2 = Chem.MolToSmiles(self._mol2)
+        # canonicalise salt-free molecules
+        self._mol1 = Chem.MolFromSmiles(self._smiles1)
+        self._mol2 = Chem.MolFromSmiles(self._smiles2)
                  
         # add chiral Hs etc. ahead of MCSS
         self._mol1 = self.__prepareMol(self._mol1)
@@ -433,7 +438,7 @@ class MMP():
         '''
         
         # predict timeout
-        if self._graph._predsolversecs > 60:
+        if self._graph._predsolversecs > 60: 
             return [{
                 'embedding': self._graph._embedding,
                 'predsolversecs': self._graph._predsolversecs,

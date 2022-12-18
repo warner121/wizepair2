@@ -6,50 +6,64 @@ elo_rating_radii as (
     radius,
     pref_name,
     standard_type
-  from `cloudrun.elo_training`
+  from `cloudrun.elo_training_agg`
   where pref_name in ('HERG', 'ANY') 
     and standard_type = 'IC50' 
-    and radius = 2
+    and radius = 1
 ),
 
-elo_ratings_augmented as (
+elo_ratings_enhanced as (
   select * 
   from `cloudrun.elo_ratings` et
-  join elo_rating_radii using (chessleague_uuid)
+  left join elo_rating_radii using (chessleague_uuid)
 )
 
 select distinct
   mr.response.fragment1, 
   mr.response.fragment2, 
   mr.response.smirks, 
-  era1.radius,
-  era1.pref_name,
-  era1.standard_type,
-  era1.rating_avg as rating1,
-  era2.rating_avg as rating2,
-  era3.rating_avg as rating3,
-  era4.rating_avg as rating4,
-  1.0 / (1 + pow(10, (era1.rating_avg - era2.rating_avg) / 400.0)) as proba1,
-  1.0 / (1 + pow(10, (era3.rating_avg - era4.rating_avg) / 400.0)) as proba2
+  ere1.radius,
+  ere1.pref_name,
+  ere1.standard_type,
+  ere1.rating_avg as rating1,
+  ere2.rating_avg as rating2,
+  ere3.rating_avg as rating3,
+  ere4.rating_avg as rating4,
+  1.0 / (1 + pow(10, (ere1.rating_avg - ere2.rating_avg) / 400.0)) as proba1,
+  1.0 / (1 + pow(10, (ere3.rating_avg - ere4.rating_avg) / 400.0)) as proba2,
+  eta1.deltas_count,
+  eta1.deltas_avg,
+  eta1.wizepair2_count,
+  eta2.deltas_count,
+  eta2.deltas_avg,
+  eta2.wizepair2_count
 from `cloudrun.mmp_responses` mr
-join elo_ratings_augmented era1 on 
-  era1.key = mr.response.fragment1 and
-  era1.radius = mr.response.radius and
-  era1.pref_name = 'HERG' and
-  era1.standard_type = 'IC50'
-join elo_ratings_augmented era2 on 
-  era2.key = mr.response.fragment2 and
-  era2.radius = mr.response.radius and 
-  era2.pref_name = 'HERG' and
-  era2.standard_type = 'IC50'
-join elo_ratings_augmented era3 on 
-  era3.key = mr.response.fragment1 and
-  era3.radius = mr.response.radius and 
-  era3.pref_name = 'ANY' and
-  era3.standard_type = 'IC50'
-join elo_ratings_augmented era4 on 
-  era4.key = mr.response.fragment2 and
-  era4.radius = mr.response.radius and 
-  era4.pref_name = 'ANY' and
-  era4.standard_type = 'IC50'
-order by proba1 * (1-proba2) desc
+join elo_ratings_enhanced ere1 on 
+  ere1.key = mr.response.fragment1 and
+  ere1.radius = mr.response.radius and
+  ere1.pref_name = 'HERG' and
+  ere1.standard_type = 'IC50'
+join elo_ratings_enhanced ere2 on 
+  ere2.key = mr.response.fragment2 and
+  ere2.radius = mr.response.radius and 
+  ere2.pref_name = 'HERG' and
+  ere2.standard_type = 'IC50'
+join elo_ratings_enhanced ere3 on 
+  ere3.key = mr.response.fragment1 and
+  ere3.radius = mr.response.radius and 
+  ere3.pref_name = 'ANY' and
+  ere3.standard_type = 'IC50'
+join elo_ratings_enhanced ere4 on 
+  ere4.key = mr.response.fragment2 and
+  ere4.radius = mr.response.radius and 
+  ere4.pref_name = 'ANY' and
+  ere4.standard_type = 'IC50'
+left join `cloudrun.elo_training_agg` eta1 on
+  mr.response.fragment1 = eta1.fragment1 and
+  mr.response.fragment2 = eta1.fragment2 and
+  ere1.chessleague_uuid = eta1.chessleague_uuid
+left join `cloudrun.elo_training_agg` eta2 on
+  mr.response.fragment1 = eta2.fragment1 and
+  mr.response.fragment2 = eta2.fragment2 and
+  ere3.chessleague_uuid = eta2.chessleague_uuid
+order by proba1 * (1-(2*abs(proba2-0.5))) desc
