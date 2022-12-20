@@ -10,7 +10,7 @@ def batch():
 
     # read mmp data into frame and retain reference
     df = pd.read_json(infile, compression='gzip', lines=True)
-    s = df.wizepair2_uuid
+    s = df.mmp_search_uuid
 
     # process mmpa
     df = df.apply(lambda x: 
@@ -18,7 +18,7 @@ def batch():
             axis=1).rename('response')
 
     # rejoin with references
-    df = df.to_frame().join(s).set_index('wizepair2_uuid')
+    df = df.to_frame().join(s).set_index('mmp_search_uuid')
     df = df.response.explode().reset_index()
 
     # write to out file

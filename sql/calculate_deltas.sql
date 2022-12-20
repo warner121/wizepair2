@@ -23,12 +23,13 @@ select
     then 'no-change'
     else null
   end as standard_change,
-  to_json_string(struct(canonical_smiles_1 as smiles1, canonical_smiles_2 as smiles2, 5 as strictness)) as request,
-  to_hex(md5(to_json_string(struct(canonical_smiles_1 as smiles1, canonical_smiles_2 as smiles2, 5 as strictness)))) as wizepair2_uuid
+  to_hex(md5(to_json_string(struct(activity_id_1, activity_id_2)))) as mmp_delta_uuid,
+  to_hex(md5(to_json_string(struct(canonical_smiles_1, canonical_smiles_2, 5)))) as mmp_search_uuid
 from (
   select 
     act.assay_id,
     act.standard_type,
+    act.activity_id as activity_id_1,
     cast(act.standard_value as numeric) as standard_value_1,
     act.standard_relation as standard_relation_1,
     cast(act.pchembl_value as numeric) as pchembl_value_1,
@@ -54,6 +55,7 @@ join (
   select 
     act.assay_id,
     act.standard_type,
+    act.activity_id as activity_id_2,
     cast(act.standard_value as numeric) as standard_value_2,
     act.standard_relation as standard_relation_2,
     cast(act.pchembl_value as numeric) as pchembl_value_2,
@@ -79,8 +81,8 @@ where
   a1.molregno_1 != a2.molregno_2 and
   a1.count_activities_1 < 50 and 
   a2.count_activities_2 < 50 and 
-  a1.heavy_atoms_1 between 2 and 20 and
-  a2.heavy_atoms_2 between 2 and 20 and
+  a1.heavy_atoms_1 between 2 and 25 and
+  a2.heavy_atoms_2 between 2 and 25 and
   a1.standard_value_1 is not null and 
   a2.standard_value_2 is not null and
   a1.duplicate_activities_1 < 2 and
