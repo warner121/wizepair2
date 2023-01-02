@@ -32,7 +32,7 @@ def elo(df, return_ratings=False):
         key2_field="fragment2",
         timestamp_field="publication_date_greatest",
         initial_time=pd.to_datetime('1970-01-01'),
-        default_k=20
+        default_k=10
     ).fit(df, df.label)
     if return_ratings: return model.rating_model.to_frame()
 
@@ -52,7 +52,7 @@ def batch():
     infiles = re.sub('[0-9]{12}', '*', infile)
     #logger.log_text(f'infiles = {infiles}')
     #logger.log_text(json.dumps(glob.glob(infiles)))
-    infiles = pd.Series(glob.glob(infiles)).sample(frac=0.5, replace=True)
+    infiles = pd.Series(glob.glob(infiles)).sample(frac=0.2, replace=True)
     #logger.log_text(json.dumps(infiles.tolist()))
     df = pd.concat(infiles.apply(pd.read_csv, compression='gzip').tolist())
     
@@ -81,7 +81,9 @@ def batch():
     df.sort_values('valid_from', inplace=True)
     df.drop_duplicates(['chessleague_uuid', 'key'], keep='last', inplace=True)
     #df[df.valid_to.isna()].to_csv(outfile, compression='gzip')
+    logger.log_text(f'{outfile} write beginning')
     df.to_csv(outfile, compression='gzip', index=False)
+    logger.log_text(f'{outfile} write complete')
     return
 
 if __name__ == "__main__":

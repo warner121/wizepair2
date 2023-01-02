@@ -3,7 +3,7 @@ FROM FILES(
   skip_leading_rows=1,
   format='CSV',
   compression='GZIP',
-  uris = ['gs://wizepair2_batch/elo_output/elo_input-*.csv.gz']
+  uris = ['gs://wizepair2_batch/elo_output/elo-*.csv.gz']
   );
 
 create or replace table `wizepair2.cloudrun.elo_ratings_temp` as
@@ -12,7 +12,8 @@ select
   ert.key,
   min(ert.valid_from) as valid_from_min,
   max(ert.valid_from) as valid_from_max,
-  JSON_QUERY_ARRAY(replace(to_json_string(array_agg(ert.rating)), ']', concat(repeat(',1500', 10-count(*)), ']'))) as ratings
+  --JSON_QUERY_ARRAY(replace(to_json_string(array_agg(ert.rating)), ']', concat(repeat(',1500', 10-count(*)), ']'))) as ratings
+  array_agg(ert.rating) as ratings
 from `cloudrun.elo_ratings_temp` ert
 group by
   ert.chessleague_uuid,
@@ -24,6 +25,7 @@ select
   ert.key,
   ert.valid_from_min,
   ert.valid_from_max,
+  array_agg(rating) as ratings,
   avg(cast(rating as float64)) as rating_avg,
   stddev(cast(rating as float64)) as rating_stddev
 from `cloudrun.elo_ratings_temp` ert, ert.ratings as rating
@@ -46,7 +48,7 @@ select
   count(*) as deltas_count,
   count(distinct et.assay_id) as assay_count,
   count(distinct et.doc_id_greatest) as doc_count,
-  count(distinct et.wizepair2_uuid) as wizepair2_count,
+  array_agg(distinct et.mmp_delta_uuid) as mmp_delta_array,
   avg(
     case 
       when standard_change='increase' then 1.0
