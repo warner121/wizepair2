@@ -7,19 +7,13 @@ import numpy as np
 import pandas as pd
 from skelo.model.elo import EloEstimator
 
-# Imports the Cloud Logging client library
 import google.cloud.logging
-
-# Instantiates a client
 client = google.cloud.logging.Client()
-
-# Retrieves a Cloud Logging handler based on the environment
-# you're running in and integrates the handler with the
-# Python logging module. By default this captures all logs
-# at INFO level and higher
 client.setup_logging()
-
 logger = client.logger("batch_task_logs")
+
+from pandarallel import pandarallel
+pandarallel.initialize()
 
 def elo(df, return_ratings=False):
     
@@ -47,13 +41,13 @@ def batch():
     outfile = sys.argv[2]
 
     # read elo input data
-    #logger.log_text(f'infile = {infile}, outfile = {outfile}')
-    #logger.log_text(json.dumps(glob.glob(infile)))
+    logger.log_text(f'infile = {infile}, outfile = {outfile}')
+    logger.log_text(json.dumps(glob.glob(infile)))
     infiles = re.sub('[0-9]{12}', '*', infile)
-    #logger.log_text(f'infiles = {infiles}')
-    #logger.log_text(json.dumps(glob.glob(infiles)))
+    logger.log_text(f'infiles = {infiles}')
+    logger.log_text(json.dumps(glob.glob(infiles)))
     infiles = pd.Series(glob.glob(infiles)).sample(frac=0.2, replace=True)
-    #logger.log_text(json.dumps(infiles.tolist()))
+    logger.log_text(json.dumps(infiles.tolist()))
     df = pd.concat(infiles.apply(pd.read_csv, compression='gzip').tolist())
     
     # suffle publication dates
@@ -74,13 +68,12 @@ def batch():
     df['label'] = df.standard_change=='increase'
     
     # run elo scoring
-    df = df.groupby(['chessleague_uuid']).apply(elo, return_ratings=True)
+    df = df.groupby(['chessleague_uuid']).parallel_apply(elo, return_ratings=True)
     df.reset_index(inplace=True)
     
     # write to out file
     df.sort_values('valid_from', inplace=True)
     df.drop_duplicates(['chessleague_uuid', 'key'], keep='last', inplace=True)
-    #df[df.valid_to.isna()].to_csv(outfile, compression='gzip')
     logger.log_text(f'{outfile} write beginning')
     df.to_csv(outfile, compression='gzip', index=False)
     logger.log_text(f'{outfile} write complete')

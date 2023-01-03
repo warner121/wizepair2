@@ -6,3 +6,4 @@ func_timeout
 gunicorn
 skelo==0.1.5
 google-cloud-logging
+pandarallel
