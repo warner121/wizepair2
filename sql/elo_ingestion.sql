@@ -36,36 +36,3 @@ group by
   ert.valid_from_max;
 
 drop table `cloudrun.elo_ratings_temp`;
-
-create or replace table `wizepair2.cloudrun.elo_training_agg` as
-select
-  chessleague_uuid,
-  radius,
-  pref_name,
-  standard_type,
-  fragment1, 
-  fragment2,
-  count(*) as deltas_count,
-  count(distinct et.assay_id) as assay_count,
-  count(distinct et.doc_id_greatest) as doc_count,
-  array_agg(distinct et.mmp_delta_uuid) as mmp_delta_array,
-  avg(
-    case 
-      when standard_change='increase' then 1.0
-      when standard_change='no-change' then 0.0
-      when standard_change='decrease' then -1.0 
-    end) as deltas_avg,
-  stddev(
-    case 
-      when standard_change='increase' then 1.0
-      when standard_change='no-change' then 0.0
-      when standard_change='decrease' then -1.0 
-    end) as deltas_stddev
-from `cloudrun.elo_training` et
-group by
-  chessleague_uuid,
-  radius,
-  pref_name,
-  standard_type,
-  fragment1, 
-  fragment2
