@@ -42,10 +42,10 @@ def batch():
 
     # read elo input data
     logger.log_text(f'infile = {infile}, outfile = {outfile}')
-    logger.log_text(json.dumps(glob.glob(infile)))
+    #logger.log_text(json.dumps(glob.glob(infile)))
     infiles = re.sub('[0-9]{12}', '*', infile)
     logger.log_text(f'infiles = {infiles}')
-    logger.log_text(json.dumps(glob.glob(infiles)))
+    #logger.log_text(json.dumps(glob.glob(infiles)))
     infiles = pd.Series(glob.glob(infiles)).sample(frac=0.2, replace=True)
     logger.log_text(json.dumps(infiles.tolist()))
     df = pd.concat(infiles.apply(pd.read_csv, compression='gzip').tolist())
