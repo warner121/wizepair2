@@ -21,8 +21,8 @@
             "mountPath": "/mnt/share"
           }
         ],
-        "maxRetryCount": 2,
-        "maxRunDuration": "3600s"
+        "maxRetryCount": 0,
+        "maxRunDuration": "86400s"
       },
       "taskCount": 10,
       "parallelism": 8
