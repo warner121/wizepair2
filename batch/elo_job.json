@@ -10,8 +10,8 @@
           }
         ],
         "computeResource": {
-          "cpuMilli": 4000,
-          "memoryMib": 32768
+          "cpuMilli": 8000,
+          "memoryMib": 65536
         },
         "volumes": [
           {
@@ -32,7 +32,7 @@
     "instances": [
       {
         "policy": {
-          "machineType": "n2d-highmem-4",
+          "machineType": "n2d-highmem-8",
           "provisioningModel": "SPOT"
         }
       }

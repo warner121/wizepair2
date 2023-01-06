@@ -13,7 +13,7 @@ client.setup_logging()
 logger = client.logger("batch_task_logs")
 
 from pandarallel import pandarallel
-pandarallel.initialize(progress_bar=False, nb_workers=4)
+pandarallel.initialize(progress_bar=False, nb_workers=8)
 
 def elo(df, return_ratings=False):
     
