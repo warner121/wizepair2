@@ -162,7 +162,7 @@ class TestNR3C1(unittest.TestCase):
             strictness=5, 
             ).execute()
         df = pd.json_normalize(response)
-        self.assertEqual(df.percentmcs.mean(), 1/30)
+        self.assertEqual(df.percentmcs.mean(), 1/15)
         self.assertEqual(df.valid.sum(), 4)
         self.assertEqual(df[df.valid].radius.min(), 1)
         self.assertEqual(df[df.valid].biproducts.sum(), 0)

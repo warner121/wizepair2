@@ -31,29 +31,42 @@ class CorrespondenceGraph(nx.Graph):
         mol1, 
         mol2, 
         strictness, 
-        sfunc=np.full(8, 10)):
+        sfunc=np.full(9, 10)):
         '''
         Build the correspondence graph.
         
-        Each atomic pairing is assigned a providional score, from 0 (most different) to 8000 (identical). 
+        Each atomic pairing is assigned a providional score, from 0 (most different) to 90 (identical). 
         This pairwise score is appended to the tuple representing each node, following the atomic indices.
         '''
         # ensure scoring function suitable
-        assert len(sfunc) == 8
+        assert len(sfunc) == 9
         assert (sfunc > 1).all()
         
         # store strictness for scoring
         self._mol1 = mol1
         self._mol2 = mol2
         self._strict = (sfunc.mean() * strictness) ** 2 # np.sort(sfunc)[:5].sum() ** 2
-        
+
         # calculate distance matrices
         self._dmat1 = Chem.GetDistanceMatrix(mol1)
         self._dmat2 = Chem.GetDistanceMatrix(mol2)
+
+        # assign E/Z attribute to atoms (not perfect but will do until maximum node & edge weighting implemented)
+        def setEZCode(mol):
+            for bond in mol.GetBonds():
+                stereo = bond.GetStereo()
+                if stereo == Chem.BondStereo.STEREONONE:
+                    continue
+                bond.GetBeginAtom().SetProp('_EZCode', str(stereo))
+                bond.GetEndAtom().SetProp('_EZCode', str(stereo))
+            return mol
+
+        self._mol1 = setEZCode(self._mol1)
+        self._mol2 = setEZCode(self._mol2)
         
         # extract propery in such a way error is not thrown on comparison
-        def getCIPCode(atom):
-            try: return atom.GetProp('_CIPCode')
+        def safeGetProp(atom, propname):
+            try: return atom.GetProp(propname)
             except KeyError: return None
             
         # create description of how central in molecule atom
@@ -68,8 +81,8 @@ class CorrespondenceGraph(nx.Graph):
         for atom1 in self._mol1.GetAtoms():
             for atom2 in self._mol2.GetAtoms():
 
-                # score putative nodes based on atom:atom similarity (0-88 + up to 10 point centrality bonus)
-                score = np.zeros(8)
+                # score putative nodes based on atom:atom similarity (0-90 + up to 9.99 point centrality bonus)
+                score = np.zeros(9)
                 if atom1.GetAtomicNum() == atom2.GetAtomicNum(): score[0] = 1
                 if atom1.GetImplicitValence() == atom2.GetImplicitValence(): score[1] = 1
                 if atom1.GetExplicitValence() == atom2.GetExplicitValence(): score[2] = 1
@@ -77,7 +90,8 @@ class CorrespondenceGraph(nx.Graph):
                 if atom1.GetIsAromatic() == atom2.GetIsAromatic(): score[4] = 1
                 if atom1.GetDegree() == atom2.GetDegree(): score[5] = 1
                 if atom1.IsInRing() == atom2.IsInRing(): score[6] = 1
-                if getCIPCode(atom1) == getCIPCode(atom2): score[7] = 1
+                if safeGetProp(atom1, '_CIPCode') == safeGetProp(atom2, '_CIPCode'): score[7] = 1
+                if safeGetProp(atom1, '_EZCode') == safeGetProp(atom2, '_EZCode'): score[8] = 1
                 score = (score * sfunc).sum()
 
                 # apply jitter in the event of a tie
@@ -137,7 +151,7 @@ class CorrespondenceGraph(nx.Graph):
 
     def filter_mcs(self, clique, clipper=2):
         
-        # remove any atom pairings with less than perfect score, excluding bonus i.e. (11*8)**2 = 7744
+        # remove any atom pairings with less than perfect score, excluding bonus i.e. (10*9)**2 = 9100
         mcs = [x for x in clique if self._nodeweights[x] >= 1] 
         
         # replace integer node numbers with atomic index tuples
