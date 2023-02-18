@@ -16,7 +16,7 @@ def batch():
 
     # process mmpa
     df = df.apply(lambda x: 
-            MMP(x.canonical_smiles_1, x.canonical_smiles_2, strictness=5).execute(), 
+            MMP(x.canonical_smiles_1, x.canonical_smiles_2, strictness=6).execute(),
             axis=1).rename('response')
 
     # rejoin with references

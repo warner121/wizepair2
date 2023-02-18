@@ -51,19 +51,6 @@ class CorrespondenceGraph(nx.Graph):
         self._dmat1 = Chem.GetDistanceMatrix(mol1)
         self._dmat2 = Chem.GetDistanceMatrix(mol2)
 
-        # assign E/Z attribute to atoms (not perfect but will do until maximum node & edge weighting implemented)
-        def setEZCode(mol):
-            for bond in mol.GetBonds():
-                stereo = bond.GetStereo()
-                if stereo == Chem.BondStereo.STEREONONE:
-                    continue
-                bond.GetBeginAtom().SetProp('_EZCode', str(stereo))
-                bond.GetEndAtom().SetProp('_EZCode', str(stereo))
-            return mol
-
-        self._mol1 = setEZCode(self._mol1)
-        self._mol2 = setEZCode(self._mol2)
-        
         # extract propery in such a way error is not thrown on comparison
         def safeGetProp(atom, propname):
             try: return atom.GetProp(propname)
@@ -267,13 +254,18 @@ class Desalinator():
             if submol.GetNumHeavyAtoms() <= largest.GetNumHeavyAtoms(): continue
             largest = submol
         mol = largest
+
+        # sneakily set conjugated bond stereo to none
+        for bond in mol.GetBonds():
+            if not bond.GetIsConjugated(): continue
+            bond.SetStereo(Chem.BondStereo.STEREONONE)
         
-        # create mol attribute
-        self._smiles = Chem.MolToSmiles(mol)
+        # create mol attribute (via inchi to enforce bond stereo removal)
+        self._mol = Chem.MolFromInchi(Chem.MolToInchi(mol))
 
     def getSmiles(self):
 
-        return self._smiles
+        return Chem.MolToSmiles(self._mol)
 
 class SMIRKSEncoder():
     
@@ -361,6 +353,17 @@ class SMIRKSEncoder():
 class MMP():
     
     @staticmethod
+    def _setEZCode(mol):
+
+        # assign E/Z attribute to atoms (not perfect but will do until maximum node & edge weighting implemented)
+        for bond in mol.GetBonds():
+            stereo = bond.GetStereo()
+            if stereo == Chem.BondStereo.STEREONONE: continue
+            bond.GetBeginAtom().SetProp('_EZCode', str(stereo))
+            bond.GetEndAtom().SetProp('_EZCode', str(stereo))
+        return mol
+
+    @staticmethod
     def __prepareMol(mol: Chem.Mol):
 
         # add hydrogen where defining isomer
@@ -378,18 +381,18 @@ class MMP():
         # return
         return mol
     
-    def __init__(self, smiles_x: str, smiles_y: str, strictness=4):
+    def __init__(self, smiles_x: str, smiles_y: str, strictness=6):
         '''
         Initialise the matched molecular pair.
         
         smiles_x: First molecule to compare.
         smiles_y: Second molecule to compare.
-        strictness: Integer (1-8) to indicate how tolerant the algortithm should to be to atom-wise chemical differences. 
+        strictness: Integer (1-9) to indicate how tolerant the algortithm should to be to atom-wise chemical differences.
             1 (slowest) all atom types match.
-            8 (fastest) atoms chemically identical to be considered part of mcss.  
+            9 (fastest) atoms chemically identical to be considered part of mcss.
         '''
         
-        if strictness-1 not in range(8): return
+        if strictness-1 not in range(9): return
         
         # remove salts from molecules
         self._smiles1 = Desalinator(smiles_x).getSmiles()
@@ -398,7 +401,11 @@ class MMP():
         # canonicalise salt-free molecules
         self._mol1 = Chem.MolFromSmiles(self._smiles1)
         self._mol2 = Chem.MolFromSmiles(self._smiles2)
-                 
+
+        # set bond stereo where rstill remaining (i.e. non-conjugated)
+        self._mol1 = self._setEZCode(self._mol1)
+        self._mol2 = self._setEZCode(self._mol2)
+
         # add chiral Hs etc. ahead of MCSS
         self._mol1 = self.__prepareMol(self._mol1)
         self._mol2 = self.__prepareMol(self._mol2)
