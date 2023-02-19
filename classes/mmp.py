@@ -31,15 +31,15 @@ class CorrespondenceGraph(nx.Graph):
         mol1, 
         mol2, 
         strictness, 
-        sfunc=np.full(9, 10)):
+        sfunc=np.full(10, 10)):
         '''
         Build the correspondence graph.
         
-        Each atomic pairing is assigned a providional score, from 0 (most different) to 90 (identical). 
+        Each atomic pairing is assigned a providional score, from 0 (most different) to 100 (identical).
         This pairwise score is appended to the tuple representing each node, following the atomic indices.
         '''
         # ensure scoring function suitable
-        assert len(sfunc) == 9
+        assert len(sfunc) == 10
         assert (sfunc > 1).all()
         
         # store strictness for scoring
@@ -68,8 +68,8 @@ class CorrespondenceGraph(nx.Graph):
         for atom1 in self._mol1.GetAtoms():
             for atom2 in self._mol2.GetAtoms():
 
-                # score putative nodes based on atom:atom similarity (0-90 + up to 9.99 point centrality bonus)
-                score = np.zeros(9)
+                # score putative nodes based on atom:atom similarity (0-100 + up to 9.99 point centrality bonus)
+                score = np.zeros(10)
                 if atom1.GetAtomicNum() == atom2.GetAtomicNum(): score[0] = 1
                 if atom1.GetImplicitValence() == atom2.GetImplicitValence(): score[1] = 1
                 if atom1.GetExplicitValence() == atom2.GetExplicitValence(): score[2] = 1
@@ -79,6 +79,7 @@ class CorrespondenceGraph(nx.Graph):
                 if atom1.IsInRing() == atom2.IsInRing(): score[6] = 1
                 if safeGetProp(atom1, '_CIPCode') == safeGetProp(atom2, '_CIPCode'): score[7] = 1
                 if safeGetProp(atom1, '_EZCode') == safeGetProp(atom2, '_EZCode'): score[8] = 1
+                if atom1.GetTotalNumHs() == atom2.GetTotalNumHs(): score[9] = 1
                 score = (score * sfunc).sum()
 
                 # apply jitter in the event of a tie
@@ -138,7 +139,7 @@ class CorrespondenceGraph(nx.Graph):
 
     def filter_mcs(self, clique, clipper=2):
         
-        # remove any atom pairings with less than perfect score, excluding bonus i.e. (10*9)**2 = 9100
+        # remove any atom pairings with less than perfect score, excluding bonus i.e. (10*10)**2
         mcs = [x for x in clique if self._nodeweights[x] >= 1] 
         
         # replace integer node numbers with atomic index tuples
@@ -267,6 +268,10 @@ class Desalinator():
 
         return Chem.MolToSmiles(self._mol)
 
+    def getInchi(self):
+
+        return Chem.MolToInchi(self._mol)
+
 class SMIRKSEncoder():
     
     def __init__(self):
@@ -371,36 +376,43 @@ class MMP():
         for atom in mol.GetAtoms():
             if not atom.HasProp('_CIPCode'): continue
             isomerics.append(atom.GetIdx())
-        mol = Chem.AddHs(mol, onlyOnAtoms=isomerics, explicitOnly=True)
-                      
+
+        # seems all Hs added when isomerics is empty now?
+        if isomerics:
+            mol = Chem.AddHs(mol, onlyOnAtoms=isomerics, explicitOnly=True)
+
         # clear mappings and initialise radii (assume all atoms are RECS)
         for atom in mol.GetAtoms(): 
             atom.SetIntProp('molAtomRadius', 0)
             atom.ClearProp('molAtomMapNumber')
-            
+
         # return
         return mol
-    
-    def __init__(self, smiles_x: str, smiles_y: str, strictness=6):
+
+    def __init__(self, smiles_x: str, smiles_y: str, strictness=8):
         '''
         Initialise the matched molecular pair.
         
         smiles_x: First molecule to compare.
         smiles_y: Second molecule to compare.
-        strictness: Integer (1-9) to indicate how tolerant the algortithm should to be to atom-wise chemical differences.
+        strictness: Integer (1-10) to indicate how tolerant the algortithm should to be to atom-wise chemical differences.
             1 (slowest) all atom types match.
-            9 (fastest) atoms chemically identical to be considered part of mcss.
+            10 (fastest) atoms chemically identical to be considered part of mcss.
         '''
-        
-        if strictness-1 not in range(9): return
-        
-        # remove salts from molecules
+
+        if strictness-1 not in range(10): return
+
+        # store input smiles for posterity
         self._smiles1 = Desalinator(smiles_x).getSmiles()
         self._smiles2 = Desalinator(smiles_y).getSmiles()
 
+        # remove salts from molecules
+        self._inchi1 = Desalinator(smiles_x).getInchi()
+        self._inchi2 = Desalinator(smiles_y).getInchi()
+
         # canonicalise salt-free molecules
-        self._mol1 = Chem.MolFromSmiles(self._smiles1)
-        self._mol2 = Chem.MolFromSmiles(self._smiles2)
+        self._mol1 = Chem.RemoveHs(Chem.MolFromInchi(self._inchi1))
+        self._mol2 = Chem.RemoveHs(Chem.MolFromInchi(self._inchi2))
 
         # set bond stereo where rstill remaining (i.e. non-conjugated)
         self._mol1 = self._setEZCode(self._mol1)
