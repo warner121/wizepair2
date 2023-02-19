@@ -358,7 +358,7 @@ class SMIRKSEncoder():
 class MMP():
     
     @staticmethod
-    def _setEZCode(mol):
+    def __setEZCode(mol):
 
         # assign E/Z attribute to atoms (not perfect but will do until maximum node & edge weighting implemented)
         for bond in mol.GetBonds():
@@ -411,12 +411,12 @@ class MMP():
         self._inchi2 = Desalinator(smiles_y).getInchi()
 
         # canonicalise salt-free molecules
-        self._mol1 = Chem.RemoveHs(Chem.MolFromInchi(self._inchi1))
-        self._mol2 = Chem.RemoveHs(Chem.MolFromInchi(self._inchi2))
+        self._mol1 = Chem.MolFromInchi(self._inchi1)
+        self._mol2 = Chem.MolFromInchi(self._inchi2)
 
         # set bond stereo where rstill remaining (i.e. non-conjugated)
-        self._mol1 = self._setEZCode(self._mol1)
-        self._mol2 = self._setEZCode(self._mol2)
+        self._mol1 = self.__setEZCode(self._mol1)
+        self._mol2 = self.__setEZCode(self._mol2)
 
         # add chiral Hs etc. ahead of MCSS
         self._mol1 = self.__prepareMol(self._mol1)
@@ -464,6 +464,38 @@ class MMP():
             # map second atom and set radius to 99 (atom part of MCS)
             atom2 = self._mol2.GetAtomWithIdx(pair[1])
             atom2.SetIntProp('molAtomRadius',99)
+            
+    def __eliminate(self, mol, radius):
+        '''
+        Method for elimination of MCS
+        
+        mol: molecule with radii set according to __setAtomRadii
+        radius: size of the environment in bonds beyond which mol is to be pruned
+        '''
+
+        # preserve atoms within <radius> bonds of attachment
+        toRemove = set(range(mol.GetNumAtoms()))
+        for atom in mol.GetAtoms():
+            if atom.GetIntProp('molAtomRadius') > 0: continue
+            for x in reversed(range(radius+1)):
+                env = list(Chem.FindAtomEnvironmentOfRadiusN(mol, x, atom.GetIdx()))
+                if not env: continue
+                break
+            for idx in env:
+                envBond = mol.GetBondWithIdx(idx)
+                toRemove.discard(envBond.GetBeginAtom().GetIdx())
+                toRemove.discard(envBond.GetEndAtom().GetIdx())
+            if radius == 0:
+                toRemove.discard(atom.GetIdx())
+
+        # remove core from environment
+        toRemove = list(toRemove)
+        toRemove.sort(reverse=True)
+        frag = Chem.EditableMol(mol)
+        for atom in toRemove: frag.RemoveAtom(atom)
+        frag = frag.GetMol()
+        frag = Chem.AddHs(frag)
+        return frag
 
     def execute(self, radii=4):
         '''
@@ -502,33 +534,6 @@ class MMP():
         self.__setAtomMapNumbers()
         self.__setAtomRadii()
                 
-        # define function for elimination of MCS
-        def eliminate(mol, radius):
-            
-            # preserve atoms within <radius> bonds of attachment
-            toRemove = set(range(mol.GetNumAtoms()))
-            for atom in mol.GetAtoms():
-                if atom.GetIntProp('molAtomRadius') > 0: continue
-                for x in reversed(range(radius+1)):
-                    env = list(Chem.FindAtomEnvironmentOfRadiusN(mol, x, atom.GetIdx()))
-                    if not len(env): continue
-                    break
-                for idx in env:
-                    envBond = mol.GetBondWithIdx(idx)
-                    toRemove.discard(envBond.GetBeginAtom().GetIdx())
-                    toRemove.discard(envBond.GetEndAtom().GetIdx())
-                if radius == 0:
-                    toRemove.discard(atom.GetIdx())
-                        
-            # remove environment from core
-            toRemove = list(toRemove)
-            toRemove.sort(reverse=True)
-            frag = Chem.EditableMol(mol)
-            for atom in toRemove: frag.RemoveAtom(atom)
-            frag = frag.GetMol()
-            frag = Chem.AddHs(frag)
-            return frag        
-
         # loop from 4 down to 1 bond radius to find smallest valid transformation
         responselist = list()
         for radius in reversed(range(radii+1)):
@@ -548,8 +553,8 @@ class MMP():
                         'error': None}
             
             # Define reaction as SMIRKS while mappings still present
-            frag1 = eliminate(self._mol1, radius)
-            frag2 = eliminate(self._mol2, radius)   
+            frag1 = self.__eliminate(self._mol1, radius)
+            frag2 = self.__eliminate(self._mol2, radius)
             encoder = SMIRKSEncoder()
             smirks, valid, error, biproducts = encoder.encode(frag1, frag2, self._smiles1, self._smiles2)
 
