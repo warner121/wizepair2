@@ -49,7 +49,7 @@ The old command-line interface has been replaced with a Flask webservice, with a
 SMILES strings must be provided in the request body as an array of dictionaries, as illustrated below. There is no limit (other than memory and processing time) to the number or length of the strings you pass. In another terminal:
 
 ```shell
-~/wizepair2$ curl --location --request POST 'http://127.0.0.1:5000/wizepair2/api/v1.0/mmp?strictness=6' \
+~/wizepair2$ curl --location --request POST 'http://127.0.0.1:5000/wizepair2/api/v1.0/mmp?strictness=7' \
 --header 'Content-Type: application/json' \
 --data-raw '[
     {
