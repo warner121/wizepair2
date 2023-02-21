@@ -483,8 +483,14 @@ class MMP():
                 break
             for idx in env:
                 envBond = mol.GetBondWithIdx(idx)
-                toRemove.discard(envBond.GetBeginAtom().GetIdx())
-                toRemove.discard(envBond.GetEndAtom().GetIdx())
+                beginAtom = envBond.GetBeginAtom()
+                endAtom = envBond.GetEndAtom()
+                toRemove.discard(beginAtom.GetIdx())
+                toRemove.discard(endAtom.GetIdx())
+                if beginAtom.HasProp('_CIPCode'):
+                    for nbr in beginAtom.GetNeighbors(): toRemove.discard(nbr.GetIdx())
+                if endAtom.HasProp('_CIPCode'):
+                    for nbr in endAtom.GetNeighbors(): toRemove.discard(nbr.GetIdx())
             if radius == 0:
                 toRemove.discard(atom.GetIdx())
 
@@ -540,7 +546,7 @@ class MMP():
             
             # return list of valid transformations
             if radius == 0: return responselist
-            
+
             # initialise response object
             response = {'smiles1': self._smiles1,
                         'smiles2': self._smiles2,

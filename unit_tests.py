@@ -151,8 +151,8 @@ class TestNR3C1(unittest.TestCase):
             ).execute()
         df = pd.json_normalize(response)
         self.assertEqual(df.percentmcs.mean(), 0.6944444444444444)
-        self.assertEqual(df.valid.sum(), 2)
-        self.assertEqual(df[df.valid].radius.min(), 3)
+        self.assertEqual(df.valid.sum(), 3)
+        self.assertEqual(df[df.valid].radius.min(), 2)
         self.assertEqual(df[df.valid].biproducts.sum(), 0)
         
     def test_NR3C1_example2(self):
@@ -266,6 +266,33 @@ class TestTotalNumHs(unittest.TestCase):
         self.assertEqual(df.valid.sum(), 4)
         self.assertEqual(df[df.valid].radius.min(), 1)
         self.assertEqual(df[df.valid].biproducts.sum(), 1)
+        
+#@unittest.skip("showing class skipping")
+class TestBorderStereo(unittest.TestCase):
+    
+    def test_TestBorderStereo_example1(self):
+        response = MMP(
+            'CCCN=C(O)Oc1ccc2c(c1)[C@@H]1CCN(CC)C1C2', 
+            'CCCN=C(O)Oc1ccc2c(c1)[C@]1(C)CCN(CC)C1C2',
+            strictness=7,
+            ).execute()
+        df = pd.json_normalize(response)
+        self.assertEqual(df.percentmcs.mean(), 21/22)
+        self.assertEqual(df.valid.sum(), 4)
+        self.assertEqual(df[df.valid].radius.min(), 1)
+        self.assertEqual(df[df.valid].biproducts.sum(), 0)
+
+    def test_TestBorderStereo_example2(self):
+        response = MMP(
+            'C[C@]12C(=O)N(CCCO)C(=O)[C@H]1[C@@H]1CC[C@H]2O1', 
+            'C[C@@]12C(=O)N(CCCO)C(=O)[C@]1(C)[C@H]1CC[C@@H]2O1',
+            strictness=7,
+            ).execute()
+        df = pd.json_normalize(response)
+        self.assertEqual(df.percentmcs.mean(), 0.95)
+        self.assertEqual(df.valid.sum(), 4)
+        self.assertEqual(df[df.valid].radius.min(), 1)
+        self.assertEqual(df[df.valid].biproducts.sum(), 2)
 
 if __name__ == '__main__':
     unittest.main()
