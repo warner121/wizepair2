@@ -414,17 +414,20 @@ class MMP():
         '''
 
         if strictness-1 not in range(10): return
+    
+        # strip salts
+        desalinator1 = Desalinator(smiles_x)
+        desalinator2 = Desalinator(smiles_y)
+        if not desalinator1._mol: return
+        if not desalinator2._mol: return
 
         # store input smiles for posterity
-        try: 
-            self._smiles1 = Desalinator(smiles_x).getSmiles()
-            self._smiles2 = Desalinator(smiles_y).getSmiles()
-        except:
-            print(smiles_x, smiles_y)
+        self._smiles1 = desalinator1.getSmiles()
+        self._smiles2 = desalinator2.getSmiles()
 
         # remove salts from molecules
-        self._inchi1 = Desalinator(smiles_x).getInchi()
-        self._inchi2 = Desalinator(smiles_y).getInchi()
+        self._inchi1 = desalinator1.getInchi()
+        self._inchi2 = desalinator2.getInchi()
 
         # canonicalise salt-free molecules
         self._mol1 = Chem.MolFromInchi(self._inchi1)
@@ -518,6 +521,11 @@ class MMP():
         solver = max_weight_clique
         '''
         
+        # detect inchi-induced evaporation
+        if not hasattr(self, '_graph'):
+            return [{
+                'error': 'no correspndance graph found'
+            }]
         # predict timeout
         if self._graph._predsolversecs > 60: 
             return [{
