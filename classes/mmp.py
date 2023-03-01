@@ -346,6 +346,14 @@ class SMIRKSEncoder():
         reactor = Reactor(smirks)
         if not reactor.assert_one2one():
             return smirks, False, 'not one2one reaction', None
+        
+        def stereinverter(smirks):
+            lookup = re.findall('(?<=[0-9])@{1,2}:[0-9]+]', smirks)
+            smirkssplit = smirks.split('>>')
+            for stereo in lookup:
+                inverted = stereo.replace('@@', 'X').replace('@', '@@').replace('X', '@')
+                yield smirkssplit[0].replace(stereo, inverted) + '>>' + smirkssplit[1]
+                yield smirkssplit[0] + '>>' + smirkssplit[1].replace(stereo, inverted)
 
         # verify derived reaction produces original 'product'
         for test in [smirks, backup]:
@@ -353,6 +361,11 @@ class SMIRKSEncoder():
             productlist = reactor.generate_products(smiles1)
             if smiles2 in productlist:
                 return test, True, None, len(productlist) - 1
+        for test in stereinverter(smirks):
+            reactor = Reactor(test)
+            productlist = reactor.generate_products(smiles1)
+            if smiles2 in productlist:
+                return test, True, None, len(productlist) - 1        
         return backup, False, 'second molecule not found amongst products enumerated from first', len(productlist)
     
 class MMP():
@@ -483,14 +496,8 @@ class MMP():
                 break
             for idx in env:
                 envBond = mol.GetBondWithIdx(idx)
-                beginAtom = envBond.GetBeginAtom()
-                endAtom = envBond.GetEndAtom()
-                toRemove.discard(beginAtom.GetIdx())
-                toRemove.discard(endAtom.GetIdx())
-                if beginAtom.HasProp('_CIPCode'):
-                    for nbr in beginAtom.GetNeighbors(): toRemove.discard(nbr.GetIdx())
-                if endAtom.HasProp('_CIPCode'):
-                    for nbr in endAtom.GetNeighbors(): toRemove.discard(nbr.GetIdx())
+                toRemove.discard(envBond.GetBeginAtom().GetIdx())
+                toRemove.discard(envBond.GetEndAtom().GetIdx())
             if radius == 0:
                 toRemove.discard(atom.GetIdx())
 
@@ -557,7 +564,7 @@ class MMP():
                         'embedding': self._graph._embedding,
                         'predsolversecs': self._graph._predsolversecs,
                         'error': None}
-            
+
             # Define reaction as SMIRKS while mappings still present
             frag1 = self.__eliminate(self._mol1, radius)
             frag2 = self.__eliminate(self._mol2, radius)
@@ -575,7 +582,7 @@ class MMP():
             frag2 = Chem.RenumberAtoms(frag2, frag2.GetPropsAsDict(True,True)["_smilesAtomOutputOrder"])
             frag1 = md5(Chem.MolToSmarts(frag1).encode()).hexdigest()
             frag2 = md5(Chem.MolToSmarts(frag2).encode()).hexdigest()
-            
+
             # return key response elements
             response['smirks'] = smirks
             response['biproducts'] = biproducts

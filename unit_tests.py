@@ -151,8 +151,8 @@ class TestNR3C1(unittest.TestCase):
             ).execute()
         df = pd.json_normalize(response)
         self.assertEqual(df.percentmcs.mean(), 0.6944444444444444)
-        self.assertEqual(df.valid.sum(), 3)
-        self.assertEqual(df[df.valid].radius.min(), 2)
+        self.assertEqual(df.valid.sum(), 2)
+        self.assertEqual(df[df.valid].radius.min(), 3)
         self.assertEqual(df[df.valid].biproducts.sum(), 0)
         
     def test_NR3C1_example2(self):
@@ -280,7 +280,7 @@ class TestBorderStereo(unittest.TestCase):
         self.assertEqual(df.percentmcs.mean(), 21/22)
         self.assertEqual(df.valid.sum(), 4)
         self.assertEqual(df[df.valid].radius.min(), 1)
-        self.assertEqual(df[df.valid].biproducts.sum(), 0)
+        self.assertEqual(df[df.valid].biproducts.sum(), 12)
 
     def test_TestBorderStereo_example2(self):
         response = MMP(
@@ -292,7 +292,31 @@ class TestBorderStereo(unittest.TestCase):
         self.assertEqual(df.percentmcs.mean(), 0.95)
         self.assertEqual(df.valid.sum(), 4)
         self.assertEqual(df[df.valid].radius.min(), 1)
-        self.assertEqual(df[df.valid].biproducts.sum(), 2)
+        self.assertEqual(df[df.valid].biproducts.sum(), 10)
+        
+    def test_TestBorderStereo_example3(self):
+        response = MMP(
+            'Cc1ccccc1C=C[C@@]12C=CC3(OO1)C(C)(C)CCC[C@]3(C)O2', 
+            'CO[C@@]12[C@H](COC(=N)O)C3=C(C(=O)C(C)=C(N)C3=O)N1C[C@@H]1N[C@@H]12',
+            strictness=7,
+            ).execute()
+        df = pd.json_normalize(response)
+        self.assertEqual(df.percentmcs.mean(), 1/9)
+        self.assertEqual(df.valid.sum(), 4)
+        self.assertEqual(df[df.valid].radius.min(), 1)
+        self.assertEqual(df[df.valid].biproducts.sum(), 0)
+
+    def test_TestBorderStereo_example4(self):
+        response = MMP(
+            'C[C@@H]1CC[C@H]2C(C)(C)[C@H]3C[C@@]12CC[C@@]3(C)O', 
+            'CC1=C[C@H]2[C@H](C(C)C)CC[C@](C)(O)[C@H]2CC1',
+            strictness=7,
+            ).execute()
+        df = pd.json_normalize(response)
+        self.assertEqual(df.percentmcs.mean(), 11/19)
+        self.assertEqual(df.valid.sum(), 4)
+        self.assertEqual(df[df.valid].radius.min(), 1)
+        self.assertEqual(df[df.valid].biproducts.sum(), 0)
 
 if __name__ == '__main__':
     unittest.main()
