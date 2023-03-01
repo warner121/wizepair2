@@ -247,7 +247,7 @@ class Desalinator():
     
         # remove salts
         remover = SaltRemover.SaltRemover()
-        mol, salts = remover.StripMolWithDeleted(mol)
+        mol, salts = remover.StripMolWithDeleted(mol, dontRemoveEverything=True)
         
         # retain largest fragment
         largest = Chem.Mol()
@@ -416,8 +416,11 @@ class MMP():
         if strictness-1 not in range(10): return
 
         # store input smiles for posterity
-        self._smiles1 = Desalinator(smiles_x).getSmiles()
-        self._smiles2 = Desalinator(smiles_y).getSmiles()
+        try: 
+            self._smiles1 = Desalinator(smiles_x).getSmiles()
+            self._smiles2 = Desalinator(smiles_y).getSmiles()
+        except:
+            print(smiles_x, smiles_y)
 
         # remove salts from molecules
         self._inchi1 = Desalinator(smiles_x).getInchi()
