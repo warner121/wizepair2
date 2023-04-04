@@ -22,11 +22,11 @@ $ cd wizepair2
 ```
 3. Create your anaconda environment from the provided yaml.  
 ```shell
-~/wizepair2$ conda env create -f environment.yaml
+~/wizepair2$ conda env create -f environment.yml
 ```
 4. Activate you new anaconda session.  
 ```shell
-~/wizepair2$ conda activate wizepair-env
+~/wizepair2$ conda activate wizepair2
 ```
 5. Run the unit tests.
 ```shell
