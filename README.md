@@ -9,9 +9,9 @@ There are a number of other notebooks illustrating more complex workflows, inclu
 
 ### Installation
 
-This implementation makes extensive use of the open source cheminformatics toolkit [RDKit](https://rdkit.org/) and the graph toolkit [networkx](https://networkx.org/). Both packages can be installed, along with all other dependencies, by anaconda as below.
+This implementation makes extensive use of the open source cheminformatics toolkit [RDKit](https://rdkit.org/) and the graph toolkit [networkx](https://networkx.org/). Both packages can be installed, along with all other dependencies, by poetry as below.
 
-1. Install poetry i(if you don't already have it):
+1. Install poetry (if you don't already have it):
 ```shell
 curl -sSL https://install.python-poetry.org | python3 -
 ```
