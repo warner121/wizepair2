@@ -1,7 +1,7 @@
 import unittest
 import pandas as pd
 
-from classes.mmp import MMP
+from wizepair2.mmp import MMP
 
 #@unittest.skip("showing class skipping")
 class TestMMP(unittest.TestCase):

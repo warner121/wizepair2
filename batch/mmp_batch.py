@@ -1,8 +1,7 @@
 import sys
-sys.path.append("./")
-
 import pandas as pd
-from classes.mmp import MMP
+
+from wizepair2.mmp import MMP
 
 def batch(): 
 

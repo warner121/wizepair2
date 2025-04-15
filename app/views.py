@@ -3,9 +3,7 @@ import logging
 import pandas as pd
 
 from flask import jsonify, request, abort
-
-from classes.mmp import MMP, Reactor, Desalinator
-
+from wizepair2.mmp import MMP, Reactor, Desalinator
 from app import app
 
 # define routes

@@ -11,29 +11,29 @@ There are a number of other notebooks illustrating more complex workflows, inclu
 
 This implementation makes extensive use of the open source cheminformatics toolkit [RDKit](https://rdkit.org/) and the graph toolkit [networkx](https://networkx.org/). Both packages can be installed, along with all other dependencies, by anaconda as below.
 
-1. Ensure your anaconda install is up to date.
+1. Install poetry i(if you don't already have it):
 ```shell
-$ conda update -n base -c defaults conda
+curl -sSL https://install.python-poetry.org | python3 -
 ```
-2. Clone the wisepair2 repository e.g.  
+2. Clone the wisepair2 repository:  
 ```shell
-$ git clone https://github.com/warner121/wizepair2.git
-$ cd wizepair2
+git clone https://github.com/warner121/wizepair2.git
+cd wizepair2
 ```
-3. Create your anaconda environment from the provided yaml.  
+3. Install dependencies and the project in editable mode:
 ```shell
-~/wizepair2$ conda env create -f environment.yml
+poetry install
 ```
-4. Activate you new anaconda session.  
+4. Activate the virtual environment (optional but recommended):
 ```shell
-~/wizepair2$ conda activate wizepair2
+poetry shell
 ```
 5. Run the unit tests.
 ```shell
-~/wizepair2$ python unit_tests.py 
+poetry run python unit_tests.py 
 ..............
 ----------------------------------------------------------------------
-Ran 14 tests in 15.448s
+Ran 26 tests in 66.463s
 
 OK
 ```
@@ -43,13 +43,13 @@ OK
 The old command-line interface has been replaced with a Flask webservice, with a view to hosting on scalable cloud infrastructure. To start the service on your local machine, simply type:
 
 ```shell
-~/wizepair2$ flask run
+poetry run flask run
 ```
 
 SMILES strings must be provided in the request body as an array of dictionaries, as illustrated below. There is no limit (other than memory and processing time) to the number or length of the strings you pass. In another terminal:
 
 ```shell
-~/wizepair2$ curl --location --request POST 'http://127.0.0.1:5000/wizepair2/api/v1.0/mmp?strictness=7' \
+curl --location --request POST 'http://127.0.0.1:5000/wizepair2/api/v1.0/mmp?strictness=7' \
 --header 'Content-Type: application/json' \
 --data-raw '[
     {

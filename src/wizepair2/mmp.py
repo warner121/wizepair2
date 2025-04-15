@@ -121,7 +121,7 @@ class CorrespondenceGraph(nx.Graph):
                     
         # get weighted degrees
         self._embedding = [np.log(self._nodeweights[node] * val) for (node, val) in self.degree()]
-        boundaries = np.sort(np.concatenate((np.linspace(3, 7, 15), [np.inf, np.NINF]), axis=0))
+        boundaries = np.sort(np.concatenate((np.linspace(3, 7, 15), [np.inf, -np.inf]), axis=0))
         self._embedding = np.histogram(self._embedding, bins=boundaries)[0].tolist()
         
         # predict solution time using simple linear model
