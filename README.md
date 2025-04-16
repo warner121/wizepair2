@@ -30,12 +30,19 @@ poetry shell
 ```
 5. Run the unit tests.
 ```shell
-poetry run python unit_tests.py 
-..............
-----------------------------------------------------------------------
-Ran 26 tests in 66.463s
+poetry run pytest tests/wizepair2/test_mmp.py
+```
+```text
+======================================================== test session starts =========================================================
+platform darwin -- Python 3.12.5, pytest-8.3.5, pluggy-1.5.0
+rootdir: /Users/daniel/wizepair2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collected 14 items                                                                                                                   
 
-OK
+tests/wizepair2/test_mmp.py ..............                                                                                     [100%]
+
+======================================================== 14 passed in 37.39s =========================================================
 ```
 
 ### Execution
