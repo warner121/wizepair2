@@ -21,13 +21,18 @@ RUN poetry config virtualenvs.create false && \
 # ---- Stage 2: Runtime ----
 FROM python:3.11-slim
 
+# Set environment early to persist Poetry PATH
+ENV POETRY_HOME=/opt/poetry
+ENV PATH="${POETRY_HOME}/bin:${PATH}"
+
 WORKDIR /app
 
-# Copy dependencies and binaries from builder
+# Copy Poetry from builder
+COPY --from=builder /opt/poetry /opt/poetry
+
+# Copy dependencies and app code
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
-
-# Copy app code
 COPY . .
 
 # Set environment variables

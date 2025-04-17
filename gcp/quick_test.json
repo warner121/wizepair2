@@ -1,0 +1,34 @@
+{
+  "name": "quick-test-job",
+  "taskGroups": [
+    {
+      "taskSpec": {
+        "runnables": [
+          {
+            "script": {
+              "text": "echo 'hello from batch!' && sleep 10"
+            }
+          }
+        ],
+        "computeResource": {
+          "cpuMilli": 1000,
+          "memoryMib": 512
+        }
+      },
+      "taskCount": 1
+    }
+  ],
+  "allocationPolicy": {
+    "serviceAccount": {
+      "email": "324998535317-compute@developer.gserviceaccount.com"
+      },
+    "instances": [
+      {
+        "policy": {
+          "machineType": "e2-small",
+          "provisioningModel": "STANDARD"
+        }
+      }
+    ]
+  }
+}

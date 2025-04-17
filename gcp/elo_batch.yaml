@@ -1,0 +1,31 @@
+name: "elo-batch-job"
+logsPolicy:
+  destination: CLOUD_LOGGING
+taskGroups:
+  - taskSpec:
+      runnables:
+        - container:
+            imageUri: us-east1-docker.pkg.dev/wizepair2/wizepair2/wizepair2:v1
+            entrypoint: "/bin/bash"
+            commands:
+              - "-c"
+              - >
+                cd /app &&
+                python batch/elo_batch.py /mnt/disks/wizepair2_batch/elo_input/elo-$(printf '%012d' ${BATCH_TASK_INDEX}).csv.gz /mnt/disks/wizepair2_batch/elo_output/elo-$(printf '%012d' ${BATCH_TASK_INDEX}).csv.gz
+      computeResource:
+        cpuMilli: 8000
+        memoryMib: 65536
+      volumes:
+        - gcs:
+            remotePath: "wizepair2_batch"
+          mountPath: "/mnt/disks/wizepair2_batch"
+      maxRetryCount: 0
+      maxRunDuration: "86400s"
+    taskCount: 10
+    parallelism: 8
+
+allocationPolicy:
+  instances:
+    - policy:
+        machineType: n2d-highmem-8
+        provisioningModel: SPOT

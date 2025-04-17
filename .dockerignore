@@ -1,7 +1,6 @@
 .git
 .ipynb_checkpoints
 notebooks
-batch
 Dockerfile
 .DS_Store
 .gitignore

@@ -1,0 +1,34 @@
+name: "mmp-batch-job"
+logsPolicy:
+  destination: CLOUD_LOGGING
+taskGroups:
+  - taskSpec:
+      environment:
+        variables:
+          PYTHONPATH: "/app/src"
+      runnables:
+        - container:
+            imageUri: us-east1-docker.pkg.dev/wizepair2/wizepair2/wizepair2:v1
+            entrypoint: "/bin/bash"
+            commands:
+              - "-c"
+              - >
+                cd /app &&
+                python batch/mmp_batch.py /mnt/disks/wizepair2_batch/mmp_input/mmp-$(printf '%012d' ${BATCH_TASK_INDEX}).json.gz /mnt/disks/wizepair2_batch/mmp_output/mmp-$(printf '%012d' ${BATCH_TASK_INDEX}).json.gz
+      computeResource:
+        cpuMilli: 1000
+        memoryMib: 1024
+      volumes:
+        - gcs:
+            remotePath: "wizepair2_batch"
+          mountPath: "/mnt/disks/wizepair2_batch"
+      maxRetryCount: 2
+      maxRunDuration: "3600s"
+    taskCount: 4000
+    parallelism: 8
+
+allocationPolicy:
+  instances:
+    - policy:
+        machineType: n2d-highcpu-2
+        provisioningModel: SPOT
