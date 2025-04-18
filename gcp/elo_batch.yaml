@@ -21,7 +21,7 @@ taskGroups:
           mountPath: "/mnt/disks/wizepair2_batch"
       maxRetryCount: 0
       maxRunDuration: "86400s"
-    taskCount: 10
+    taskCount: 1
     parallelism: 1
 
 allocationPolicy:
