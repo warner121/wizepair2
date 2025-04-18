@@ -22,7 +22,7 @@ taskGroups:
       maxRetryCount: 0
       maxRunDuration: "86400s"
     taskCount: 10
-    parallelism: 8
+    parallelism: 1
 
 allocationPolicy:
   instances:
