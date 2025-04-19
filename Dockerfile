@@ -1,5 +1,5 @@
 # ---- Stage 1: Builder ----
-FROM python:3.11-slim AS builder
+FROM python:3.12-slim AS builder
 
 # Install system dependencies and Poetry
 ENV POETRY_VERSION=1.7.1 \
@@ -19,7 +19,7 @@ RUN poetry config virtualenvs.create false && \
     poetry install --only main --no-interaction --no-ansi
 
 # ---- Stage 2: Runtime ----
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # Set environment early to persist Poetry PATH
 ENV POETRY_HOME=/opt/poetry
@@ -31,7 +31,7 @@ WORKDIR /app
 COPY --from=builder /opt/poetry /opt/poetry
 
 # Copy dependencies and app code
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 COPY . .
 
