@@ -13,7 +13,7 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-# Copy only what’s needed to install dependencies
+# Copy only what's needed to install dependencies
 COPY pyproject.toml poetry.lock ./
 RUN poetry config virtualenvs.create false && \
     poetry install --only main --no-interaction --no-ansi
@@ -36,11 +36,10 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 COPY . .
 
 # Set environment variables
-ENV PORT=5000 \
+ENV PORT=8000 \
     WORKERS=1 \
-    THREADS=1 \
-    WORKER_CLASS=gthread \
     TIMEOUT=60 \
+    HOST=0.0.0.0 \
     PYTHONUNBUFFERED=1
 
 # Run as non-root user
@@ -49,5 +48,5 @@ USER appuser
 
 EXPOSE ${PORT}
 
-# Entrypoint
-CMD ["sh", "-c", "exec gunicorn main:app --bind=0.0.0.0:${PORT} --workers=${WORKERS} --threads=${THREADS} --worker-class=${WORKER_CLASS} --timeout=${TIMEOUT}"]
+# Entrypoint using Uvicorn for FastAPI
+CMD ["sh", "-c", "exec uvicorn main:app --host=${HOST} --port=${PORT} --workers=${WORKERS} --timeout-keep-alive=${TIMEOUT}"]

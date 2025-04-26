@@ -24,11 +24,7 @@ cd wizepair2
 ```shell
 poetry install
 ```
-4. Activate the virtual environment (optional but recommended):
-```shell
-poetry shell
-```
-5. Run the unit tests.
+4. Run the unit tests.
 ```shell
 poetry run pytest tests/wizepair2/test_mmp.py
 ```
@@ -45,18 +41,26 @@ tests/wizepair2/test_mmp.py ..............                                      
 ======================================================== 14 passed in 37.39s =========================================================
 ```
 
-### Execution
+### Starting the server
 
-The old command-line interface has been replaced with a Flask webservice, with a view to hosting on scalable cloud infrastructure. To start the service on your local machine, simply type:
+The core functionality is exposed through a fastapi webservice, so that it may be hosted scalable cloud infrastructure. To start the service on your local machine, simply type:
 
 ```shell
-poetry run flask run
+poetry run python main 
 ```
+
+Alternatively, you can build the docker image and run the service in a container:
+```shell
+docker build -t wizepair2 .
+docker run -p 8000:8000 wizepair2
+```
+
+### Execution
 
 SMILES strings must be provided in the request body as an array of dictionaries, as illustrated below. There is no limit (other than memory and processing time) to the number or length of the strings you pass. In another terminal:
 
 ```shell
-curl --location --request POST 'http://127.0.0.1:5000/wizepair2/api/v1.0/mmp?strictness=7' \
+curl --location --request POST 'http://127.0.0.1:8000/wizepair2/api/v1.0/mmp?strictness=7' \
 --header 'Content-Type: application/json' \
 --data-raw '[
     {
